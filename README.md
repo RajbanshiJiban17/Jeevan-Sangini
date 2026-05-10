@@ -65,5 +65,4 @@ This project is built using the **RAG** architecture to ensure zero hallucinatio
 - **Privacy:** We do not store sensitive personal health data on public servers.
 
 ---
-**Developed for Hackathon 2026**  
-*Empowering health through Artificial Intelligence.*
+depolyed:https://jeevan-sangini.streamlit.app/
