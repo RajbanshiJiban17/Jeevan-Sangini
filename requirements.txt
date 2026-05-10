@@ -12,3 +12,5 @@ sentence-transformers
 python-dotenv
 gTTS
 huggingface_hub
+torch
+torchvision
