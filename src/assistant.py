@@ -2,7 +2,7 @@ import os
 from groq import Groq
 
 class HealthAssistant:
-    def __init__(self, api_key, model_name="gemma-4-26b-moe"):
+    def __init__(self, api_key, model_name="gemma-3-27b"):
         self.client = Groq(api_key=api_key)
         # Kaggle Gemma Challenge को लागि Gemma मोडेल प्रयोग गरिएको
         self.model = model_name 
