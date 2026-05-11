@@ -2,7 +2,7 @@ import os
 import google.generativeai as genai
 
 class HealthAssistant:
-    def __init__(self, api_key, model_name="gemma-1.1-7b-it"):
+    def __init__(self, api_key, model_name="gemini-1.5-flash"):
         # Google AI Studio Configuration
         genai.configure(api_key=api_key)
         # GenerativeModel इन्स्टन्स बनाउने
