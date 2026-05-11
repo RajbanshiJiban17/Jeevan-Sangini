@@ -41,7 +41,7 @@ def init_assistant():
     """Gemma 4 आधारित एसासिस्टेन्ट सुरु गर्छ।"""
     # नोट: Groq मा Gemma 4 को पछिल्लो मोडेल नेम 'gemma2-9b-it' वा 'gemma-7b-it' हुन सक्छ। 
     # च्यालेन्जको लागि हामी 'gemma2-9b-it' (वा उपलब्ध पछिल्लो) प्रयोग गर्छौँ।
-    return HealthAssistant(api_key=os.getenv("GOOGLE_API_KEY"), model_name="gemma-2-9b-it")
+    return HealthAssistant(api_key=os.getenv("GOOGLE_API_KEY"), model_name="models/gemma-2-9b")
 
 # ४. सेसन स्टेट सेटिङ
 if "assistant" not in st.session_state:
@@ -63,6 +63,13 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📄 Lab Report / रिपोर्ट")
     report_file = st.file_uploader("Upload PDF Report", type=['pdf'])
+    
+    with st.sidebar:
+        st.title("🛡️ सुरक्षा जानकारी")
+        st.info(
+        "यो एआई (Gemma 2) ले दिएको जानकारी नेपालको स्वास्थ्य निर्देशिकामा आधारित छ। "
+        "तर, यो डाक्टरको विकल्प होइन। कुनै पनि समस्या भएमा तुरुन्त स्वास्थ्य चौकी जानुहोस्।"
+    )
     
     if report_file:
         if st.button("Agentic Analysis ✨", use_container_width=True):

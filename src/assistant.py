@@ -2,7 +2,7 @@ import os
 import google.generativeai as genai
 
 class HealthAssistant:
-    def __init__(self, api_key, model_name="gemma-2-9b-it"):
+    def __init__(self, api_key, model_name="models/gemma-2-9b"):
         # Google AI Studio Configuration
         genai.configure(api_key=api_key)
         # GenerativeModel इन्स्टन्स बनाउने
@@ -71,13 +71,20 @@ class HealthAssistant:
             )
             
             answer = response.text
+            
+            # ४. डिस्क्लेमर थप्ने (तपाईँले भन्नुभएको मुख्य कुरा)
+            disclaimer = (
+                "\n\n---\n⚠️ **Note:** This AI is for information only. Please consult a doctor for medical advice." 
+                if lang == "English" else 
+                "\n\n---\n⚠️ **नोट:** यो एआई केवल जानकारीका लागि हो। स्वास्थ्य सम्बन्धी सल्लाहका लागि अनिवार्य रूपमा डाक्टरसँग परामर्श गर्नुहोस्।"
+            )
 
             # ४. Safety Audit
             if mode == "report" and ("danger" in answer.lower() or "तुरुन्त" in answer or "alert" in answer.lower()):
                 prefix = "⚠️ **URGENT:** " if lang == "English" else "⚠️ **महत्त्वपूर्ण चेतावनी:** "
-                return prefix + answer
+                return prefix + answer + disclaimer
             
-            return answer
+            return answer + disclaimer
             
         except Exception as e:
             error_msg = "Technical error with Gemma Engine." if lang == "English" else "Gemma इन्जिनमा प्राविधिक समस्या आयो।"
