@@ -41,7 +41,7 @@ def init_assistant():
     """Gemma 4 आधारित एसासिस्टेन्ट सुरु गर्छ।"""
     # नोट: Groq मा Gemma 4 को पछिल्लो मोडेल नेम 'gemma2-9b-it' वा 'gemma-7b-it' हुन सक्छ। 
     # च्यालेन्जको लागि हामी 'gemma2-9b-it' (वा उपलब्ध पछिल्लो) प्रयोग गर्छौँ।
-    return HealthAssistant(api_key=os.getenv("GROQ_API_KEY"), model_name="gemma2-9b-it")
+    return HealthAssistant(api_key=os.getenv("GOOGLE_API_KEY"), model_name="gemma2-9b-it")
 
 # ४. सेसन स्टेट सेटिङ
 if "assistant" not in st.session_state:
@@ -159,4 +159,4 @@ with tab2:
         st.line_chart(chart_data)
 
 st.markdown("---")
-st.caption("© 2026 Jeevan-Sangini | Built for Kaggle Gemma 4 Impact Challenge")
+st.caption("© 2026 Jeevan-Sangini |")

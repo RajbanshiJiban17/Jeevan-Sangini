@@ -1,9 +1,9 @@
 import os
-from groq import Groq
+import google.generativeai as genai
 
 class HealthAssistant:
     def __init__(self, api_key, model_name="gemma2-9b-it"):
-        self.client = Groq(api_key=api_key)
+        self.client = genai(api_key=api_key)
         # Kaggle Gemma Challenge को लागि Gemma मोडेल प्रयोग गरिएको
         self.model = model_name 
         
