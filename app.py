@@ -10,13 +10,13 @@ from gtts import gTTS
 from src.processor import process_pdf_to_vectorstore
 from src.assistant import HealthAssistant
 
-# १. वातावरण र वार्निङ फिल्टर (Optimization for Speed)
+# १. वातावरण र वार्निङ फिल्टर
 load_dotenv()
 warnings.filterwarnings("ignore")
 logging.getLogger("transformers").setLevel(logging.ERROR)
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
-# २. पेज कन्फिगरेसन र स्टाइल
+# २. पेज कन्फिगरेसन
 st.set_page_config(page_title="Jeevan-Sangini | Gemma Powered", page_icon="🤰", layout="wide")
 
 st.markdown("""
@@ -33,22 +33,19 @@ st.markdown("""
 # ३. क्यासिङ लोजिक
 @st.cache_resource
 def get_vector_db(folder_path):
-    """PDF लोड गर्ने र Vector Store बनाउने कार्यलाई क्यास गर्छ।"""
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     return process_pdf_to_vectorstore(folder_path)
 
 @st.cache_resource
 def init_assistant():
-    """Gemma आधारित एसासिस्टेन्ट सुरु गर्छ।"""
     api_key = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
-        st.error("API Key भेटिएन! कृपया .env वा Streamlit Secrets चेक गर्नुहोस्।")
+        st.error("API Key भेटिएन! कृपया Settings मा जानुहोस्।")
         return None
-    # नोट: अब हामी मोडलको नाम assistant.py भित्रै डायनामिकली ह्यान्डल गर्छौँ
     return HealthAssistant(api_key=api_key)
 
-# ४. सेसन स्टेट सेटिङ
+# ४. सेसन स्टेट
 if "assistant" not in st.session_state:
     st.session_state.assistant = init_assistant()
 
@@ -66,12 +63,10 @@ with st.sidebar:
     lang = st.radio("🌐 Language / भाषा:", ("नेपाली", "English"))
     
     st.markdown("---")
-    
-    # तपाईँले भन्नुभएको मुख्य सुरक्षा चेतावनी (Sidebar Disclaimer)
-    st.subheader("🛡️ महत्वपूर्ण जानकारी")
-    st.warning(
-        "यो एआईले दिएको जानकारी केवल शैक्षिक उद्देश्यका लागि हो। "
-        "कुनै पनि स्वास्थ्य सम्बन्धी निर्णय लिनुअघि अनिवार्य रूपमा **डाक्टरसँग परामर्श** गर्नुहोस्।"
+    st.subheader("🛡️ सुरक्षा जानकारी")
+    st.info(
+        "यो एआईले दिएको जानकारी नेपालको स्वास्थ्य निर्देशिकामा आधारित छ। "
+        "तर, यो डाक्टरको विकल्प होइन। कुनै पनि समस्या भएमा तुरुन्त स्वास्थ्य चौकी जानुहोस्।"
     )
     
     st.markdown("---")
@@ -93,19 +88,18 @@ with st.sidebar:
                     st.error(f"Error: {e}")
 
     st.markdown("---")
-    st.error("🚨 EMERGENCY")
     if st.button("🆘 SOS HELP", use_container_width=True, type="primary"):
         st.session_state.sos_active = True
 
 # ६. मुख्य ड्यासबोर्ड
-st.title("🤰 Jeevan-Sangini AI" if lang == "English" else "🤰 जीवन-सङ्गिनी AI")
-st.caption("Gemma Powered | Frontier Intelligence for Maternal Health in Nepal")
+st.title("🤰 Jeevan-Sangini AI" if lang == "English" else "🤰 जीवन-सङ्गलिनी AI")
+st.caption("Powered by Google Gemma | Dedicated to Maternal Health in Nepal")
 
 if "vector_db" not in st.session_state:
     with st.spinner("Knowledge Base तयार हुँदैछ..."):
         try:
             st.session_state.vector_db = get_vector_db("data/")
-            st.success("Grounded Knowledge Base Active! ✅")
+            st.success("Knowledge Base Active! ✅")
         except Exception as e:
             st.error(f"Data Load Error: {e}")
 
@@ -115,7 +109,7 @@ if st.session_state.sos_active:
         <div class='sos-card'>
             <h2 style='color:#ff4b4b;'>🚨 SOS ALERT ACTIVE</h2>
             <p style='font-size: 20px;'>Ambulance: <b>102</b> | Police: <b>100</b></p>
-            <p>Immediate medical attention is advised. Please contact nearest hospital.</p>
+            <p>Immediate medical attention is advised.</p>
         </div>
     """, unsafe_allow_html=True)
     if st.button("Close SOS"):
@@ -141,15 +135,17 @@ with tab1:
             context = " ".join([d.page_content for d in docs])
 
         with st.chat_message("assistant"):
-            with st.spinner("Gemma सोचिरहेको छ..."):
+            thinking_msg = "Thinking with Gemma..." if lang == "English" else "जीवन-सङ्गलिनी सोच्दैछ..."
+            with st.spinner(thinking_msg):
                 if st.session_state.assistant:
                     answer = st.session_state.assistant.ask(prompt, context, lang=lang)
                     st.markdown(answer)
                     
                     # Audio response
                     try:
+                        clean_text = answer.split("---")[0]
                         v_lang = 'ne' if lang == "नेपाली" else 'en'
-                        tts = gTTS(text=answer.split("---")[0], lang=v_lang) # Disclaimer बाहेकको भाग मात्र वाचन गर्ने
+                        tts = gTTS(text=clean_text, lang=v_lang)
                         audio_fp = io.BytesIO()
                         tts.write_to_fp(audio_fp)
                         st.audio(audio_fp, format="audio/mp3")
@@ -157,8 +153,6 @@ with tab1:
                         pass
                     
                     st.session_state.messages.append({"role": "assistant", "content": answer})
-                else:
-                    st.error("Assistant not initialized. Please check API Key.")
 
 with tab2:
     col1, col2 = st.columns([1.5, 1])
@@ -166,7 +160,7 @@ with tab2:
         if 'analysis' in st.session_state:
             st.markdown(f"<div class='report-box'><h3>🔬 Lab Insights</h3>{st.session_state.analysis}</div>", unsafe_allow_html=True)
         else:
-            st.info("रिपोर्ट अपलोड गरेपछि यहाँ विश्लेषण देखिनेछ।")
+            st.info("रिपोर्ट अपलोड गरेपछि यहाँ एआई विश्लेषण देखिनेछ।")
     
     with col2:
         st.subheader("📊 Maternal Progress")
@@ -175,4 +169,4 @@ with tab2:
         st.line_chart(chart_data)
 
 st.markdown("---")
-st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers by Nepali Developers | Powered by Google Gemma")
+st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
