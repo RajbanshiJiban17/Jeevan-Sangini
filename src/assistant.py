@@ -64,6 +64,8 @@ class HealthAssistant:
                 f"Context/Report Data: {context}\n\n"
                 f"User Question: {user_query}\n\n"
                 f"Instruction: Be highly detailed. If it's a report, compare values with standards. Use {lang}."
+                f"Special Instruction: The report may contain LaTeX symbols like $ or (+). "
+                f"Please clean the text in your mind and extract only the numerical values and units."
             )
 
             # ३. API कल (Temperature अलि कम राखिएको छ ताकि डाटा सही आओस्)
