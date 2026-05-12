@@ -17,7 +17,7 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 # २. पेज कन्फिगरेसन र स्टाइल
-st.set_page_config(page_title="Jeevan-Sangini | Gemma 4 Powered", page_icon="🤰", layout="wide")
+st.set_page_config(page_title="Jeevan-Sangini | Gemma Powered", page_icon="🤰", layout="wide")
 
 st.markdown("""
     <style>
@@ -30,18 +30,23 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ३. क्यासिङ लोजिक (एप छिटो खुल्ने बनाउन - Fast Loading)
+# ३. क्यासिङ लोजिक
 @st.cache_resource
 def get_vector_db(folder_path):
-    """PDF लोड गर्ने र Vector Store बनाउने कार्यलाई क्यास गर्छ ताकि प्रत्येक पटक लोड नहोस्।"""
+    """PDF लोड गर्ने र Vector Store बनाउने कार्यलाई क्यास गर्छ।"""
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     return process_pdf_to_vectorstore(folder_path)
 
 @st.cache_resource
 def init_assistant():
-    """Gemma 4 आधारित एसासिस्टेन्ट सुरु गर्छ।"""
-    # नोट: Groq मा Gemma 4 को पछिल्लो मोडेल नेम 'gemma2-9b-it' वा 'gemma-7b-it' हुन सक्छ। 
-    # च्यालेन्जको लागि हामी 'gemma2-9b-it' (वा उपलब्ध पछिल्लो) प्रयोग गर्छौँ।
-    return HealthAssistant(api_key=os.getenv("GOOGLE_API_KEY"), model_name="models/gemini-1.5-flash")
+    """Gemma आधारित एसासिस्टेन्ट सुरु गर्छ।"""
+    api_key = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
+    if not api_key:
+        st.error("API Key भेटिएन! कृपया .env वा Streamlit Secrets चेक गर्नुहोस्।")
+        return None
+    # नोट: अब हामी मोडलको नाम assistant.py भित्रै डायनामिकली ह्यान्डल गर्छौँ
+    return HealthAssistant(api_key=api_key)
 
 # ४. सेसन स्टेट सेटिङ
 if "assistant" not in st.session_state:
@@ -53,34 +58,37 @@ if "messages" not in st.session_state:
 if "sos_active" not in st.session_state:
     st.session_state.sos_active = False
 
-# ५. साइडबार र रिपोर्ट अपलोड
+# ५. साइडबार
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2865/2865910.png", width=80)
-    st.title("Gemma 4 Control")
+    st.title("Gemma Control")
     
     lang = st.radio("🌐 Language / भाषा:", ("नेपाली", "English"))
+    
+    st.markdown("---")
+    
+    # तपाईँले भन्नुभएको मुख्य सुरक्षा चेतावनी (Sidebar Disclaimer)
+    st.subheader("🛡️ महत्वपूर्ण जानकारी")
+    st.warning(
+        "यो एआईले दिएको जानकारी केवल शैक्षिक उद्देश्यका लागि हो। "
+        "कुनै पनि स्वास्थ्य सम्बन्धी निर्णय लिनुअघि अनिवार्य रूपमा **डाक्टरसँग परामर्श** गर्नुहोस्।"
+    )
     
     st.markdown("---")
     st.subheader("📄 Lab Report / रिपोर्ट")
     report_file = st.file_uploader("Upload PDF Report", type=['pdf'])
     
-    with st.sidebar:
-        st.title("🛡️ सुरक्षा जानकारी")
-        st.info(
-        "यो एआई (Gemma 2) ले दिएको जानकारी नेपालको स्वास्थ्य निर्देशिकामा आधारित छ। "
-        "तर, यो डाक्टरको विकल्प होइन। कुनै पनि समस्या भएमा तुरुन्त स्वास्थ्य चौकी जानुहोस्।"
-    )
-    
     if report_file:
         if st.button("Agentic Analysis ✨", use_container_width=True):
-            with st.spinner("Gemma 4 विश्लेषण गर्दैछ..."):
+            with st.spinner("Gemma विश्लेषण गर्दैछ..."):
                 try:
                     reader = PyPDF2.PdfReader(io.BytesIO(report_file.read()))
-                    report_text = " ".join([p.extract_text() for p in reader.pages])
-                    # रिपोर्टमा खतरा देखिए एजेन्टले आफैँ चेतावनी दिन्छ
-                    st.session_state.analysis = st.session_state.assistant.ask(
-                        "Analyze this lab report for risk signs.", report_text, lang=lang, mode="report"
-                    )
+                    report_text = " ".join([p.extract_text() for p in reader.pages if p.extract_text()])
+                    
+                    if st.session_state.assistant:
+                        st.session_state.analysis = st.session_state.assistant.ask(
+                            "Analyze this lab report for risk signs.", report_text, lang=lang, mode="report"
+                        )
                 except Exception as e:
                     st.error(f"Error: {e}")
 
@@ -89,12 +97,12 @@ with st.sidebar:
     if st.button("🆘 SOS HELP", use_container_width=True, type="primary"):
         st.session_state.sos_active = True
 
-# ६. मुख्य ड्यासबोर्ड र Knowledge Base
+# ६. मुख्य ड्यासबोर्ड
 st.title("🤰 Jeevan-Sangini AI" if lang == "English" else "🤰 जीवन-सङ्गिनी AI")
-st.caption("Powered by Gemma 4 | Frontier Intelligence for Maternal Health")
+st.caption("Gemma Powered | Frontier Intelligence for Maternal Health in Nepal")
 
 if "vector_db" not in st.session_state:
-    with st.spinner("Knowledge Base तयार हुँदैछ (यसले पहिलो पटक मात्र समय लिन्छ)..."):
+    with st.spinner("Knowledge Base तयार हुँदैछ..."):
         try:
             st.session_state.vector_db = get_vector_db("data/")
             st.success("Grounded Knowledge Base Active! ✅")
@@ -107,7 +115,7 @@ if st.session_state.sos_active:
         <div class='sos-card'>
             <h2 style='color:#ff4b4b;'>🚨 SOS ALERT ACTIVE</h2>
             <p style='font-size: 20px;'>Ambulance: <b>102</b> | Police: <b>100</b></p>
-            <p>Seeking immediate medical attention is advised.</p>
+            <p>Immediate medical attention is advised. Please contact nearest hospital.</p>
         </div>
     """, unsafe_allow_html=True)
     if st.button("Close SOS"):
@@ -122,34 +130,35 @@ with tab1:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Ask about health..."):
+    if prompt := st.chat_input("स्वास्थ्य सम्बन्धी केही सोध्न चाहनुहुन्छ?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Agentic RAG Search
         context = ""
         if "vector_db" in st.session_state and st.session_state.vector_db:
-            # Similarity search to ground the model
-            docs = st.session_state.vector_db.similarity_search(prompt, k=3)
+            docs = st.session_state.vector_db.similarity_search(prompt, k=2)
             context = " ".join([d.page_content for d in docs])
 
         with st.chat_message("assistant"):
-            with st.spinner("Thinking with Gemma 4..."):
-                answer = st.session_state.assistant.ask(prompt, context, lang=lang)
-                st.markdown(answer)
-                
-                # Audio response for Inclusivity
-                try:
-                    v_lang = 'ne' if lang == "नेपाली" else 'en'
-                    tts = gTTS(text=answer, lang=v_lang)
-                    audio_fp = io.BytesIO()
-                    tts.write_to_fp(audio_fp)
-                    st.audio(audio_fp, format="audio/mp3")
-                except:
-                    pass
-                
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+            with st.spinner("Gemma सोचिरहेको छ..."):
+                if st.session_state.assistant:
+                    answer = st.session_state.assistant.ask(prompt, context, lang=lang)
+                    st.markdown(answer)
+                    
+                    # Audio response
+                    try:
+                        v_lang = 'ne' if lang == "नेपाली" else 'en'
+                        tts = gTTS(text=answer.split("---")[0], lang=v_lang) # Disclaimer बाहेकको भाग मात्र वाचन गर्ने
+                        audio_fp = io.BytesIO()
+                        tts.write_to_fp(audio_fp)
+                        st.audio(audio_fp, format="audio/mp3")
+                    except:
+                        pass
+                    
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
+                else:
+                    st.error("Assistant not initialized. Please check API Key.")
 
 with tab2:
     col1, col2 = st.columns([1.5, 1])
@@ -157,7 +166,7 @@ with tab2:
         if 'analysis' in st.session_state:
             st.markdown(f"<div class='report-box'><h3>🔬 Lab Insights</h3>{st.session_state.analysis}</div>", unsafe_allow_html=True)
         else:
-            st.info("Upload a report to see AI-driven insights.")
+            st.info("रिपोर्ट अपलोड गरेपछि यहाँ विश्लेषण देखिनेछ।")
     
     with col2:
         st.subheader("📊 Maternal Progress")
@@ -166,4 +175,4 @@ with tab2:
         st.line_chart(chart_data)
 
 st.markdown("---")
-st.caption("© 2026 Jeevan-Sangini |")
+st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers by Nepali Developers | Powered by Google Gemma")
