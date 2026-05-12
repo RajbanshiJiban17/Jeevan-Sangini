@@ -66,6 +66,7 @@ class HealthAssistant:
                 f"Instruction: Be highly detailed. If it's a report, compare values with standards. Use {lang}."
                 f"Special Instruction: The report may contain LaTeX symbols like $ or (+). "
                 f"Please clean the text in your mind and extract only the numerical values and units."
+                f"Extract values even if they have $ symbols"
             )
 
             # ३. API कल (Temperature अलि कम राखिएको छ ताकि डाटा सही आओस्)
@@ -73,7 +74,7 @@ class HealthAssistant:
                 full_prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.1, 
-                    max_output_tokens=1500,
+                    max_output_tokens=2000,
                 )
             )
             answer = response.text
