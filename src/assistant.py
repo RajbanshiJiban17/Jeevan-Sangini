@@ -4,7 +4,10 @@ import time
 class HealthAssistant:
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-latest")
+        try:
+             self.model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        except:
+             self.model = genai.GenerativeModel(model_name="gemini-pro")
 
     def ask(self, user_query, context, lang="नेपाली", mode="chat"):
         try:
