@@ -23,12 +23,13 @@ def process_pdf_to_vectorstore(data_source="data/"):
         else: # Bytes stream from Streamlit
             pdf_data = data_source.read()
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_data))
-            for page in pdf_reader.pages:
-                content = page.extract_text()
-                if content:
-                    # सफा गर्ने लोजिक थपिएको
-                    content = content.replace('$', '').replace('\n', ' ')
-                    all_documents.append(Document(page_content=content))
+            # process_pdf_to_vectorstore फङ्सन भित्र:
+        for page in pdf_reader.pages:
+          content = page.extract_text()
+        if content:
+        # $ र + चिन्ह हटाउने ताकि एआई नझुक्कियोस्
+         content = content.replace('$', '').replace('+', ' Plus').replace('\n', ' ')
+        all_documents.append(Document(page_content=content))
 
         if not all_documents: return None
 
