@@ -26,6 +26,10 @@ st.markdown("""
 def get_vector_db():
     return process_pdf_to_vectorstore("data/")
 
+if not api_key:
+    st.error("🚨 गूगल API Key भेटिएन! कृपया .env फाइलमा GOOGLE_API_KEY=your_key राख्नुहोस्।")
+    st.stop() # कि नभेटिए एप नै रोक्दिने
+
 if "assistant" not in st.session_state:
     api_key = os.getenv("GOOGLE_API_KEY")
     st.session_state.assistant = HealthAssistant(api_key=api_key)
