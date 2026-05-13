@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import time
 
 class HealthAssistant:
@@ -8,6 +8,8 @@ class HealthAssistant:
             raise ValueError("API Key missing")
 
         genai.configure(api_key=api_key)
+        for m in genai.list_models():
+            print(m.name)
 
         self.model = None
 
