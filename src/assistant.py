@@ -11,12 +11,15 @@ class HealthAssistant:
         # NEW Gemini client
         self.client = genai.Client(api_key=api_key)
 
-        # ✅ YOUR BEST AVAILABLE MODEL
+        # ✅ MULTI MODELS (fallback system)
         self.models = [
-                      "models/gemini-2.0-flash",
-                      "models/gemini-2.0-flash-lite"]
+            "models/gemini-2.0-flash",
+            "models/gemini-2.0-flash-lite"
+        ]
 
-        # Optional: list models (debug only)
+        # choose default
+        self.model = self.models[0]
+
         try:
             models = self.client.models.list()
             print("📌 Available Models:")
@@ -29,10 +32,7 @@ class HealthAssistant:
 
     def ask(self, user_query, context="", lang="नेपाली"):
 
-        try:
-            time.sleep(1)
-
-            prompt = f"""
+        prompt = f"""
 तिमी 'जीवन-सङ्गलिनी' AI Health Assistant हौ।
 
 सन्दर्भ:
@@ -49,15 +49,21 @@ class HealthAssistant:
 {user_query}
 """
 
-            response = self.client.models.generate_content(
-                models=self.models,
-                contents=prompt
-            )
+        # 🔥 fallback system (quota safe)
+        for model in self.models:
+            try:
+                time.sleep(1)
 
-            if response and hasattr(response, "text"):
-                return response.text
+                response = self.client.models.generate_content(
+                    model=model,   # ✅ SINGLE STRING (IMPORTANT FIX)
+                    contents=prompt
+                )
 
-            return "⚠️ Empty response"
+                if response and hasattr(response, "text"):
+                    return response.text
 
-        except Exception as e:
-            return f"🚨 AI Error: {str(e)}"
+            except Exception as e:
+                print(f"Model failed {model}: {e}")
+                continue
+
+        return "🚨 AI Error: सबै models fail भए"
