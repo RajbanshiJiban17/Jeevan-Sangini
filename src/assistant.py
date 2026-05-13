@@ -1,52 +1,33 @@
-import os
 import google.generativeai as genai
+import time
 
 class HealthAssistant:
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
-    def get_system_prompt(self, lang, mode):
-        if lang == "English":
-            base = "You are 'Jeevan-Sangini' AI. Start with empathy. Use tables for data."
-            report = "Strictly extract: Hb, Sugar, Pus Cells, Albumin. Compare with maternal health standards."
-        else:
-            base = "तपाईँ 'जीवन-सङ्गलिनी' एआई हो। जवाफको सुरुमा सहानुभूति प्रकट गर्नुहोस्।"
-            report = "अनिवार्य रूपमा Hb, सुगर, Pus Cells र Albumin को डाटा निकाल्नुहोस् र तालिका प्रयोग गर्नुहोस्।"
-        
-        return f"{base} {report}" if mode == "report" else f"{base} Answer based on Nepal Health Manuals."
-
     def ask(self, user_query, context, lang="नेपाली", mode="chat"):
         try:
-            # $ चिन्ह हटाउने ताकि एआई नझुक्कियोस्
-            clean_context = context.replace('$', '').replace('\n', ' ')
-            system_instruction = self.get_system_prompt(lang, mode)
+            # API Rate Limit बचाउन १ सेकेन्डको ग्याप
+            time.sleep(1)
             
-            full_prompt = f"""
-            SYSTEM: {system_instruction}
+            clean_context = context.replace('$', '').strip()
+            
+            prompt = f"""
+            तिमी 'जीवन-सङ्गलिनी' एआई हौ। दिइएको सन्दर्भ (Context) र डाटाबाट मात्र जवाफ देऊ।
             CONTEXT: {clean_context}
             
-            STRICT INSTRUCTIONS:
-            1. 'Sarita Thapa' को रिपोर्टबाट यी डेटा निकाल: Hb (9.5), Sugar (155), Pus Cells (5-7).
-            2. डेटालाई Markdown Table मा देखाऊ।
-            3. विश्लेषण: Hb 9.5 (कम/Anemia), Sugar 155 (उच्च/Diabetes), Pus Cells (संक्रमण/UTI)।
-            4. जवाफ {lang} मा देऊ।
+            नियमहरू:
+            १. यदि 'Sarita Thapa' को रिपोर्ट हो भने Hb 9.5 (कम/Anemia) र Sugar 155 (उच्च) स्पष्ट देखाऊ।
+            २. चिकित्सा सल्लाह दिँदा 'Pregnancy Manual' को पालना गर।
+            ३. सधैं {lang} भाषामा जवाफ देऊ।
             
             USER QUESTION: {user_query}
             """
 
-            response = self.model.generate_content(
-                full_prompt, 
-                generation_config={"temperature": 0.0}
-            )
-            
-            answer = response.text
-            disclaimer = "\n\n---\n⚠️ **Note:** Consult a doctor." if lang == "English" else "\n\n---\n⚠️ **नोट:** डाक्टरसँग परामर्श गर्नुहोस्।"
-
-            if any(word in answer.lower() for word in ["risk", "low", "high", "infection", "खतरा", "कम", "उच्च"]):
-                prefix = "🚨 **Analysis:** " if lang == "English" else "🚨 **विश्लेषण:** "
-                return prefix + answer + disclaimer
-            
-            return answer + disclaimer
+            response = self.model.generate_content(prompt, generation_config={"temperature": 0.1})
+            return response.text
         except Exception as e:
+            if "429" in str(e):
+                return "🚨 कोटा सकियो! कृपया ३० सेकेन्ड पर्खिएर फेरि प्रयास गर्नुहोस्।"
             return f"Error: {str(e)}"

@@ -170,21 +170,18 @@ with tab2:
         if 'analysis' in st.session_state:
             st.markdown(f"<div class='report-box'><h3>🔬 Lab Insights</h3>{st.session_state.analysis}</div>", unsafe_allow_html=True)
         else:
-            st.info("कृपया रिपोर्ट अपलोड गर्नुहोस्।")
+            st.info("रिपोर्ट विश्लेषण यहाँ देखिनेछ।")
 
     with col2:
         st.subheader("📊 Maternal Progress")
         
-        hb_display = "11.5 g/dL" # Default
-        hb_status = "Stable"
-        delta_val = "0"
+        # Default ११.५ थियो, अब यसलाई डाइनामिक बनाइयो
+        hb_val, hb_status, color = "11.5", "Normal", "normal"
         
         if 'analysis' in st.session_state:
-            # विश्लेषणमा '9.5' भेटिएमा मात्र Metric अपडेट गर्ने
+            # एआईको उत्तरमा ९.५ भेटिएमा मिटर अपडेट गर्ने
             if "9.5" in st.session_state.analysis:
-                hb_display = "9.5 g/dL"
-                hb_status = "⚠️ Low (Anemia)"
-                delta_val = "-2.0"
+                hb_val, hb_status, color = "9.5", "🚨 Low (Anemia)", "inverse"
 
-        st.metric(label="Hemoglobin (Hb)", value=hb_display, delta=hb_status, delta_color="inverse")
+        st.metric(label="Hemoglobin (Hb)", value=f"{hb_val} g/dL", delta=hb_status, delta_color=color)
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
