@@ -1,16 +1,16 @@
 import streamlit as st
-import streamlit as st
 import os, io, PyPDF2, warnings, logging
 from dotenv import load_dotenv
 from gtts import gTTS
 from src.processor import process_pdf_to_vectorstore
 from src.assistant import HealthAssistant
 
+# १. कन्फिगरेसन र इन्भ्यारोमेन्ट
 load_dotenv()
 warnings.filterwarnings("ignore")
 st.set_page_config(page_title="Jeevan-Sangini | Gemma Powered", page_icon="🤰", layout="wide")
 
-# CSS Styling
+# २. CSS स्टाइलिङ
 st.markdown("""
     <style>
     .main { background-color: #fffafb; }
@@ -21,42 +21,52 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# सेसन स्टेट र क्यासिङ
+# ३. एआई असिस्टेन्ट र डेटा इन्स्ट्यान्स सुरु गर्ने
+api_key = os.getenv("GOOGLE_API_KEY")
+
+if not api_key:
+    st.error("🚨 गूगल API Key भेटिएन! कृपया .env फाइलमा GOOGLE_API_KEY=your_key राख्नुहोस्।")
+    st.stop()
+
+if "assistant" not in st.session_state:
+    st.session_state.assistant = HealthAssistant(api_key=api_key)
+
+# ४. क्यासिङ र सेसन स्टेट
 @st.cache_resource
 def get_vector_db():
     return process_pdf_to_vectorstore("data/")
 
-if "assistant" not in st.session_state:
-    api_key = os.getenv("GOOGLE_API_KEY")
-    st.error("🚨 गूगल API Key भेटिएन! कृपया .env फाइलमा GOOGLE_API_KEY=your_key राख्नुहोस्।")
-    st.stop() # कि नभेटिए एप नै रोक्दिने
-    st.session_state.assistant = HealthAssistant(api_key=api_key)
-
 if "messages" not in st.session_state: st.session_state.messages = []
 if "sos_active" not in st.session_state: st.session_state.sos_active = False
 
-# Sidebar
+# ५. साइडबार (Sidebar)
 with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/2865/2865910.png", width=80)
     st.title("Gemma Control")
     lang = st.radio("🌐 Language / भाषा:", ("नेपाली", "English"))
     st.markdown("---")
+    
     st.subheader("📄 Lab Report / रिपोर्ट")
     report_file = st.file_uploader("Upload PDF Report", type=['pdf'])
     
     if report_file and st.button("Agentic Analysis ✨", use_container_width=True):
         with st.spinner("Analyzing..."):
-            reader = PyPDF2.PdfReader(io.BytesIO(report_file.read()))
-            report_text = " ".join([p.extract_text() for p in reader.pages if p.extract_text()])
-            st.session_state.analysis = st.session_state.assistant.ask("Full Health Analysis", report_text, lang=lang)
+            try:
+                reader = PyPDF2.PdfReader(io.BytesIO(report_file.read()))
+                report_text = " ".join([p.extract_text() for p in reader.pages if p.extract_text()])
+                st.session_state.analysis = st.session_state.assistant.ask("Full Health Analysis", report_text, lang=lang)
+            except Exception as e:
+                st.error(f"प्रशोधनमा समस्या आयो: {e}")
 
     if st.button("🆘 SOS HELP", use_container_width=True, type="primary"):
         st.session_state.sos_active = True
 
-# Main Dashboard
+# ६. मुख्य ड्यासबोर्ड (Main Dashboard)
 st.title("🤰 Jeevan-Sangini AI")
+st.caption("Powered by Google Gemma | Dedicated to Maternal Health in Nepal")
 
 if st.session_state.sos_active:
-    st.markdown("<div class='sos-card'><h2>🚨 SOS: 102 | 100</h2><p>Immediate Help Requested!</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='sos-card'><h2>🚨 SOS: 102 | 100</h2><p>Immediate Medical Attention Requested!</p></div>", unsafe_allow_html=True)
     if st.button("Close SOS"): 
         st.session_state.sos_active = False
         st.rerun()
@@ -80,7 +90,9 @@ with tab1:
             docs = st.session_state.vector_db.similarity_search(prompt, k=2)
             context = " ".join([d.page_content for d in docs])
             
-        ans = st.session_state.assistant.ask(prompt, context, lang=lang)
+        with st.spinner("Gemma सोच्दैछ..."):
+            ans = st.session_state.assistant.ask(prompt, context, lang=lang)
+        
         st.session_state.messages.append({"role": "assistant", "content": ans})
         with st.chat_message("assistant"): st.markdown(ans)
 
@@ -89,12 +101,15 @@ with tab2:
     with col1:
         if 'analysis' in st.session_state:
             st.markdown(f"<div class='report-box'><h3>🔬 Lab Insights</h3>{st.session_state.analysis}</div>", unsafe_allow_html=True)
+        else:
+            st.info("रिपोर्ट विश्लेषण हेर्नको लागि साइडबारबाट फाइल अपलोड गर्नुहोस्।")
+    
     with col2:
         st.subheader("📊 Maternal Progress")
+        # एआईको उत्तरमा ९.५ भेटिएमा मिटरलाई रातो (inverse) बनाउने
         hb_val = "9.5" if "analysis" in st.session_state and "9.5" in st.session_state.analysis else "11.5"
         delta = "🚨 Low (Anemia)" if hb_val == "9.5" else "Normal"
         st.metric(label="Hemoglobin (Hb)", value=f"{hb_val} g/dL", delta=delta, delta_color="inverse" if hb_val == "9.5" else "normal")
 
-
-
+st.markdown("---")
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
