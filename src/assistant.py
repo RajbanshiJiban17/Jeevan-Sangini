@@ -12,7 +12,7 @@ class HealthAssistant:
         # 'models/' प्रिफिक्स नराख्दा यो एरर हराउँछ
         try:
             # १.५ फ्ल्यास ट्राय गर्ने
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-2.0-flash')
         except:
             try:
                 # फ्ल्यास चलेन भने प्रो (Pro) ट्राय गर्ने
