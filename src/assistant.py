@@ -14,7 +14,7 @@ class HealthAssistant:
         try:
             # Available stable Gemini model
             self.model = genai.GenerativeModel(
-                model_name="models/gemini-1.5-flash-latest"
+                model_name="models/gemini-1.5-flash"
             )
 
             print("✅ Gemini model loaded successfully")
