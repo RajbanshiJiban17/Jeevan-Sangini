@@ -5,41 +5,50 @@ class HealthAssistant:
     def __init__(self, api_key):
         if not api_key:
             raise ValueError("API Key is missing")
-        
+
         genai.configure(api_key=api_key)
-        
-        # ४०४ एरर हटाउन सिधै मोडेलको नाम मात्र प्रयोग गर्ने
-        # 'models/' प्रिफिक्स नराख्दा यो एरर हराउँछ
+        for m in genai.list_models():
+         print(m.name)
+
+        self.model = None
+
         try:
-            # १.५ फ्ल्यास ट्राय गर्ने
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
-        except:
-            try:
-                # फ्ल्यास चलेन भने प्रो (Pro) ट्राय गर्ने
-                self.model = genai.GenerativeModel('gemini-2.0-pro')
-            except Exception as e:
-                print(f"Model Load Error: {e}")
+            # Stable working model
+            self.model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash"
+            )
+            print("✅ Gemini model loaded successfully")
+
+        except Exception as e:
+            print(f"❌ Model Load Error: {e}")
 
     def ask(self, user_query, context, lang="नेपाली"):
         try:
-            # Rate Limit (429) एररबाट बच्न
+            if not self.model:
+                return "🚨 AI model load भएको छैन।"
+
+            # Rate limit avoid
             time.sleep(1)
-            
-            # प्रोम्प्ट सफा र प्रस्ट बनाउने
+
             prompt = f"""
-            तिमी 'जीवन-सङ्गलिनी' एआई हौ। 
-            सन्दर्भ: {context}
-            नियम: सधैं {lang} भाषामा जवाफ देऊ। यदि Hb ९.५ छ भने 'उच्च जोखिम' भनी चेतावनी देऊ।
-            
-            प्रश्न: {user_query}
-            """
-            
-            if self.model:
-                # यहाँ सिधै जेनेरेट गर्ने
-                response = self.model.generate_content(prompt)
-                return response.text
-            return "🚨 मोडेल लोड हुन सकेन। कृपया लाइब्रेरी अपडेट गर्नुहोस्।"
-            
+तिमी 'जीवन-सङ्गलिनी' एआई हौ।
+
+सन्दर्भ:
+{context}
+
+नियम:
+- सधैं {lang} भाषामा जवाफ देऊ।
+- सरल र बुझिने भाषा प्रयोग गर।
+- यदि Hb ९.५ भन्दा कम छ भने 'उच्च जोखिम' चेतावनी देऊ।
+- मेडिकल emergency भए तुरुन्त doctor सल्लाह सुझाव देऊ।
+
+प्रश्न:
+{user_query}
+"""
+
+            response = self.model.generate_content(prompt)
+
+            return response.text
+
         except Exception as e:
-            # यदि ४०४ एरर अझै आयो भने यहाँबाट थाहा हुन्छ
-            return f"एआईमा समस्या आयो: {str(e)}"
+            return f"🚨 एआईमा समस्या आयो: {str(e)}"
