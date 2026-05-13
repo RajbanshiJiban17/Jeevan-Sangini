@@ -5,8 +5,9 @@ import PyPDF2
 import warnings
 from dotenv import load_dotenv
 
-from src.processor import process_pdf_to_vectorstore
-from src.assistant import HealthAssistant
+from processor import process_pdf_to_vectorstore
+from assistant import HealthAssistant
+
 
 # =========================================
 # CONFIG
