@@ -13,8 +13,8 @@ class HealthAssistant:
 
         # ✅ YOUR BEST AVAILABLE MODEL
         self.models = [
-                "models/gemini-2.5-flash",
-                "models/gemini-2.0-flash"]
+                      "models/gemini-2.0-flash",
+                      "models/gemini-2.0-flash-lite"]
 
         # Optional: list models (debug only)
         try:

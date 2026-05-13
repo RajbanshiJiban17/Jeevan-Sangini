@@ -4,17 +4,23 @@ import io
 import PyPDF2
 import warnings
 from dotenv import load_dotenv
+from gtts import gTTS
+import tempfile
 
 from src.processor import process_pdf_to_vectorstore
 from src.assistant import HealthAssistant
 
+# =========================================
+# CACHE: AI RESPONSE (IMPORTANT FOR QUOTA)
+# =========================================
+@st.cache_data(show_spinner=False)
+def get_ai_response(prompt, context, lang):
+    return st.session_state.assistant.ask(prompt, context, lang)
 
 # =========================================
 # CONFIG
 # =========================================
-
 load_dotenv()
-
 warnings.filterwarnings("ignore")
 
 st.set_page_config(
@@ -23,17 +29,12 @@ st.set_page_config(
     layout="wide"
 )
 
-
 # =========================================
-# CUSTOM CSS
+# CSS
 # =========================================
-
 st.markdown("""
 <style>
-
-.main {
-    background-color: #fffafb;
-}
+.main { background-color: #fffafb; }
 
 .stButton>button {
     border-radius: 14px;
@@ -59,37 +60,32 @@ st.markdown("""
     border-radius: 15px;
     border: 3px solid #ff4b4b;
     text-align: center;
-    margin-bottom: 20px;
     animation: blinker 1.5s linear infinite;
 }
 
 @keyframes blinker {
-    50% {
-        opacity: 0.7;
-    }
+    50% { opacity: 0.7; }
 }
-
 </style>
 """, unsafe_allow_html=True)
-
 
 # =========================================
 # API KEY
 # =========================================
-
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("🚨 GEMINI_API_KEY not found in .env file")
+    st.error("🚨 GEMINI_API_KEY missing in .env")
     st.stop()
-
 
 # =========================================
 # SESSION STATE
 # =========================================
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "assistant" not in st.session_state:
+    st.session_state.assistant = HealthAssistant(api_key=api_key)
 
 if "sos_active" not in st.session_state:
     st.session_state.sos_active = False
@@ -97,325 +93,177 @@ if "sos_active" not in st.session_state:
 if "analysis" not in st.session_state:
     st.session_state.analysis = ""
 
-
 # =========================================
-# LOAD ASSISTANT
+# VECTOR DB
 # =========================================
-
-if "assistant" not in st.session_state:
-
-    st.session_state.assistant = HealthAssistant(
-        api_key=api_key
-    )
-
-
-# =========================================
-# VECTOR DATABASE
-# =========================================
-
 @st.cache_resource
 def get_vector_db():
-
     return process_pdf_to_vectorstore("data/")
-
 
 # =========================================
 # SIDEBAR
 # =========================================
-
 with st.sidebar:
 
-    st.image(
-        "https://cdn-icons-png.flaticon.com/512/2865/2865910.png",
-        width=90
-    )
-
+    st.image("https://cdn-icons-png.flaticon.com/512/2865/2865910.png", width=90)
     st.title("🩺 Jeevan-Sangini")
 
-    lang = st.radio(
-        "🌐 Language",
-        ("नेपाली", "English")
-    )
+    lang = st.radio("🌐 Language", ("नेपाली", "English"))
 
     st.markdown("---")
-
     st.subheader("📄 Upload Medical Report")
 
-    report_file = st.file_uploader(
-        "Upload PDF",
-        type=["pdf"]
-    )
+    report_file = st.file_uploader("Upload PDF", type=["pdf"])
 
-    # =====================================
-    # PDF ANALYSIS
-    # =====================================
+    if report_file and st.button("🔬 Analyze Report", use_container_width=True):
 
-    if report_file:
+        with st.spinner("Analyzing..."):
 
-        if st.button(
-            "🔬 Analyze Report",
-            use_container_width=True
-        ):
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(report_file.read()))
 
-            with st.spinner("Analyzing medical report..."):
+            report_text = "\n".join(
+                [p.extract_text() for p in pdf_reader.pages if p.extract_text()]
+            )
 
-                try:
+            if report_text.strip():
 
-                    pdf_reader = PyPDF2.PdfReader(
-                        io.BytesIO(report_file.read())
-                    )
-
-                    pages = []
-
-                    for page in pdf_reader.pages:
-
-                        text = page.extract_text()
-
-                        if text:
-                            pages.append(text)
-
-                    report_text = "\n".join(pages)
-
-                    if not report_text.strip():
-
-                        st.error("❌ PDF text extract भएन")
-
-                    else:
-
-                        analysis_prompt = f"""
-Analyze this medical report carefully.
-
-Explain:
+                prompt = f"""
+Analyze this medical report:
 - abnormal values
-- health risks
-- maternal health condition
-- precautions
+- risks
+- pregnancy health
 - emergency warnings
 
-Medical Report:
+REPORT:
 {report_text}
 """
 
-                        analysis = st.session_state.assistant.ask(
-                            analysis_prompt,
-                            context=report_text,
-                            lang=lang
-                        )
+                analysis = get_ai_response(prompt, report_text, lang)
 
-                        st.session_state.analysis = analysis
+                st.session_state.analysis = analysis
 
-                        st.success("✅ Analysis completed")
+                st.success("Analysis Done")
 
-                except Exception as e:
+            else:
+                st.error("PDF text extract failed")
 
-                    st.error(f"❌ PDF Error: {e}")
-
-    st.markdown("---")
-
-    if st.button(
-        "🆘 SOS EMERGENCY",
-        use_container_width=True,
-        type="primary"
-    ):
-
+    if st.button("🆘 SOS EMERGENCY", use_container_width=True):
         st.session_state.sos_active = True
 
-
 # =========================================
-# MAIN PAGE
+# MAIN TITLE
 # =========================================
-
 st.title("🤰 Jeevan-Sangini AI")
-
-st.caption(
-    "Powered by Google Gemini | AI Healthcare Assistant for Nepali Mothers"
-)
-
+st.caption("AI Healthcare Assistant for Nepali Mothers")
 
 # =========================================
-# SOS CARD
+# SOS
 # =========================================
-
 if st.session_state.sos_active:
 
     st.markdown("""
     <div class='sos-card'>
         <h2>🚨 SOS ACTIVE</h2>
-        <p>Emergency Medical Support Required</p>
         <h3>📞 102 | 100</h3>
     </div>
     """, unsafe_allow_html=True)
 
     if st.button("Close SOS"):
-
         st.session_state.sos_active = False
-
         st.rerun()
-
 
 # =========================================
 # TABS
 # =========================================
-
-tab1, tab2 = st.tabs([
-    "💬 AI Consultation",
-    "📊 Health Report"
-])
-
+tab1, tab2 = st.tabs(["💬 AI Chat", "📊 Report"])
 
 # =========================================
-# TAB 1 - CHAT
+# CHAT TAB
 # =========================================
-
 with tab1:
 
     for msg in st.session_state.messages:
-
         with st.chat_message(msg["role"]):
-
             st.markdown(msg["content"])
 
-    prompt = st.chat_input(
-        "स्वास्थ्य सम्बन्धी प्रश्न सोध्नुहोस्..."
-    )
+    prompt = st.chat_input("Ask health question...")
 
     if prompt:
 
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.chat_message("user"):
-
             st.markdown(prompt)
 
-        # =================================
         # VECTOR SEARCH
-        # =================================
-
-        if "vector_db" not in st.session_state:
-
-            with st.spinner("Loading knowledge base..."):
-
-                st.session_state.vector_db = get_vector_db()
-
         context = ""
 
-        try:
+        if "vector_db" not in st.session_state:
+            st.session_state.vector_db = get_vector_db()
 
-            if st.session_state.vector_db:
+        if st.session_state.vector_db:
+            docs = st.session_state.vector_db.similarity_search(prompt, k=2)
+            context = "\n".join([d.page_content for d in docs])
 
-                docs = st.session_state.vector_db.similarity_search(
-                    prompt,
-                    k=2
-                )
-
-                context = "\n".join([
-                    d.page_content for d in docs
-                ])
-
-        except Exception as e:
-
-            print(f"Vector Error: {e}")
-
-        # =================================
         # AI RESPONSE
-        # =================================
+        with st.spinner("Gemini thinking..."):
 
-        with st.spinner("🤖 Gemini AI सोच्दैछ..."):
+            answer = get_ai_response(prompt, context, lang)
 
-            answer = st.session_state.assistant.ask(
-                prompt,
-                context=context,
-                lang=lang
-            )
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer
-        })
+        st.session_state.messages.append({"role": "assistant", "content": answer})
 
         with st.chat_message("assistant"):
-
             st.markdown(answer)
 
+            # =================================
+            # 🔊 AUDIO (FIXED)
+            # =================================
+            try:
+                tts = gTTS(answer, lang="ne")
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                tts.save(temp_file.name)
+                st.audio(temp_file.name)
+            except:
+                pass
 
 # =========================================
-# TAB 2 - HEALTH REPORT
+# REPORT TAB
 # =========================================
-
 with tab2:
 
     col1, col2 = st.columns([1.7, 1])
 
-    # =====================================
-    # REPORT ANALYSIS
-    # =====================================
-
     with col1:
 
         if st.session_state.analysis:
-
-            st.markdown(
-                f"""
-                <div class='report-box'>
-                <h3>🔬 AI Medical Analysis</h3>
-                <p>{st.session_state.analysis}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
+            st.markdown(f"""
+            <div class='report-box'>
+            <h3>🔬 AI Analysis</h3>
+            <p>{st.session_state.analysis}</p>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-
-            st.info(
-                "📄 Upload a PDF medical report from sidebar for AI analysis."
-            )
-
-    # =====================================
-    # METRICS
-    # =====================================
+            st.info("Upload report for analysis")
 
     with col2:
 
-        st.subheader("📊 Maternal Health")
+        st.subheader("📊 Health Stats")
 
-        analysis_text = st.session_state.analysis.lower()
+        text = st.session_state.analysis.lower()
 
-        hb_val = "11.5"
-        delta = "Normal"
+        hb = "11.5"
+        status = "Normal"
 
-        if "9.5" in analysis_text or "low hemoglobin" in analysis_text:
+        if "9.5" in text:
+            hb = "9.5"
+            status = "Low (Anemia)"
 
-            hb_val = "9.5"
-            delta = "🚨 Low (Anemia)"
-
-        st.metric(
-            label="Hemoglobin (Hb)",
-            value=f"{hb_val} g/dL",
-            delta=delta,
-            delta_color="inverse" if hb_val == "9.5" else "normal"
-        )
-
-        st.metric(
-            label="Blood Pressure",
-            value="120/80",
-            delta="Stable"
-        )
-
-        st.metric(
-            label="Pregnancy Risk",
-            value="Medium"
-        )
-
+        st.metric("Hemoglobin", hb, status)
+        st.metric("BP", "120/80", "Stable")
+        st.metric("Risk", "Medium")
 
 # =========================================
 # FOOTER
 # =========================================
-
 st.markdown("---")
-
-st.caption(
-    "© 2026 Jeevan-Sangini AI | Built for Nepali Maternal Healthcare"
-)
+st.caption("© 2026 Jeevan-Sangini AI")
