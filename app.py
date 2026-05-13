@@ -162,11 +162,26 @@ with tab2:
         else:
             st.info("रिपोर्ट अपलोड गरेपछि यहाँ एआई विश्लेषण देखिनेछ।")
     
-    with col2:
-        st.subheader("📊 Maternal Progress")
-        st.metric("Hb Level", "11.5 g/dL", "Stable")
-        chart_data = pd.DataFrame({'Week': [4, 8, 12, 16, 20], 'Weight': [50.0, 52.5, 54.0, 57.2, 60.5]}).set_index('Week')
-        st.line_chart(chart_data)
+    # app.py को Tab 2 भित्रको col2 यसरी अपडेट गर्नुहोस्:
+
+with col2:
+    st.subheader("📊 Maternal Progress")
+    
+    # रिपोर्टबाट Hb भ्यालु खोज्ने लोजिक
+    hb_val = "N/A"
+    hb_status = "Normal"
+    if 'analysis' in st.session_state:
+        if "9.5" in st.session_state.analysis:
+            hb_val = "9.5 g/dL"
+            hb_status = "Low (Anemia)"
+        elif "Hb" in st.session_state.analysis:
+            hb_val = "Detected"
+    
+    st.metric("Hemoglobin (Hb)", hb_val, hb_status, delta_color="inverse")
+    
+    # Weight Chart
+    chart_data = pd.DataFrame({'Week': [4, 8, 12, 16, 20], 'Weight': [50.0, 52.5, 54.0, 57.2, 60.5]}).set_index('Week')
+    st.line_chart(chart_data)
 
 st.markdown("---")
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
