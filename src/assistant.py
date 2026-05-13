@@ -8,25 +8,13 @@ class HealthAssistant:
         if not api_key:
             raise ValueError("API Key missing")
 
-        # NEW Gemini client
         self.client = genai.Client(api_key=api_key)
 
-        # ✅ MULTI MODELS (fallback system)
+        # fallback models
         self.models = [
-            "models/gemini-2.0-flash",
-            "models/gemini-2.0-flash-lite"
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite"
         ]
-
-        # choose default
-        self.model = self.models[0]
-
-        try:
-            models = self.client.models.list()
-            print("📌 Available Models:")
-            for m in models:
-                print(" -", m.name)
-        except Exception as e:
-            print(f"Model list error: {e}")
 
         print("✅ Gemini client initialized successfully")
 
@@ -49,13 +37,13 @@ class HealthAssistant:
 {user_query}
 """
 
-        # 🔥 fallback system (quota safe)
+        # fallback system
         for model in self.models:
             try:
                 time.sleep(1)
 
                 response = self.client.models.generate_content(
-                    model=model,   # ✅ SINGLE STRING (IMPORTANT FIX)
+                    model=model,   # ✅ FIXED HERE
                     contents=prompt
                 )
 
