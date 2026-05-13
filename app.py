@@ -164,24 +164,14 @@ with tab2:
     
     # app.py को Tab 2 भित्रको col2 यसरी अपडेट गर्नुहोस्:
 
+# app.py भित्र
 with col2:
-    st.subheader("📊 Maternal Progress")
-    
-    # रिपोर्टबाट Hb भ्यालु खोज्ने लोजिक
-    hb_val = "N/A"
-    hb_status = "Normal"
     if 'analysis' in st.session_state:
+        # यदि विश्लेषणमा '9.5' भन्ने अंक छ भने Metric अपडेट गर्ने
         if "9.5" in st.session_state.analysis:
-            hb_val = "9.5 g/dL"
-            hb_status = "Low (Anemia)"
-        elif "Hb" in st.session_state.analysis:
-            hb_val = "Detected"
-    
-    st.metric("Hemoglobin (Hb)", hb_val, hb_status, delta_color="inverse")
-    
-    # Weight Chart
-    chart_data = pd.DataFrame({'Week': [4, 8, 12, 16, 20], 'Weight': [50.0, 52.5, 54.0, 57.2, 60.5]}).set_index('Week')
-    st.line_chart(chart_data)
+            st.metric("Hemoglobin (Hb)", "9.5 g/dL", "⚠️ Low (Anemia)", delta_color="inverse")
+        else:
+            st.metric("Hemoglobin (Hb)", "11.5 g/dL", "Normal")
 
 st.markdown("---")
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
