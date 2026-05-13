@@ -6,14 +6,14 @@ class HealthAssistant:
         genai.configure(api_key=api_key)
         try:
     # पहिलो प्राथमिकता: Flash Latest
-    self.model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
-except:
-    try:
+            self.model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
+        except:
+             try:
         # दोस्रो विकल्प: सिधा Flash
-        self.model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-    except:
+                   self.model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+             except:
         # अन्तिम विकल्प: Gemini Pro (जुन पुरानो तर स्थिर छ)
-        self.model = genai.GenerativeModel(model_name="gemini-pro")
+                    self.model = genai.GenerativeModel(model_name="gemini-pro")
     def ask(self, user_query, context, lang="नेपाली", mode="chat"):
         try:
             # API Rate Limit बचाउन १ सेकेन्डको ग्याप
