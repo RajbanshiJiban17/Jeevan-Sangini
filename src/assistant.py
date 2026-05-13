@@ -2,32 +2,28 @@ from google import genai
 import time
 
 class HealthAssistant:
+
     def __init__(self, api_key):
 
         if not api_key:
             raise ValueError("API Key missing")
 
-        genai.configure(api_key=api_key)
-        for m in genai.list_models():
-            print(m.name)
+        # NEW SDK client
+        self.client = genai.Client(api_key=api_key)
 
-        self.model = None
+        self.model = "gemini-1.5-flash"
 
+        # OPTIONAL: list available models (debug only)
         try:
-            # Available stable Gemini model
-            self.model = genai.GenerativeModel(
-                model_name="models/gemini-1.5-flash"
-            )
-
-            print("✅ Gemini model loaded successfully")
-
+            models = self.client.models.list()
+            for m in models:
+                print(m.name)
         except Exception as e:
-            print(f"❌ Model Error: {e}")
+            print(f"Model list error: {e}")
+
+        print("✅ Gemini client initialized")
 
     def ask(self, user_query, context="", lang="नेपाली"):
-
-        if not self.model:
-            return "🚨 Gemini model load भएन।"
 
         try:
 
@@ -42,20 +38,20 @@ class HealthAssistant:
 नियम:
 - सधैं {lang} भाषामा जवाफ देऊ।
 - छोटो, स्पष्ट र professional जवाफ देऊ।
-- मेडिकल emergency भए तुरुन्त doctor सल्लाह देऊ।
+- Medical emergency भए तुरुन्त doctor सल्लाह देऊ।
 - Hb 9.5 भन्दा कम भए anemia warning देऊ।
-- PDF report analyse गर्दा important values explain गर।
+- PDF report analyze गर्दा values explain गर।
 
 प्रश्न:
 {user_query}
 """
 
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt
+            )
 
-            if response and hasattr(response, "text"):
-                return response.text
-
-            return "⚠️ Response empty आयो"
+            return response.text if response else "⚠️ Empty response"
 
         except Exception as e:
             return f"🚨 AI Error: {str(e)}"
