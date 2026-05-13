@@ -164,7 +164,7 @@ with tab2:
     
     # app.py को Tab 2 भित्रको col2 यसरी अपडेट गर्नुहोस्:
 
-# app.py भित्र
+
 with col2:
     if 'analysis' in st.session_state:
         # यदि विश्लेषणमा '9.5' भन्ने अंक छ भने Metric अपडेट गर्ने
