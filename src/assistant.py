@@ -50,7 +50,7 @@ class HealthAssistant:
 """
 
             response = self.client.models.generate_content(
-                model=self.model,
+                model=self.models,
                 contents=prompt
             )
 
