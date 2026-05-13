@@ -12,7 +12,9 @@ class HealthAssistant:
         self.client = genai.Client(api_key=api_key)
 
         # ✅ YOUR BEST AVAILABLE MODEL
-        self.model = "models/gemini-2.5-flash"
+        self.models = [
+                "models/gemini-2.5-flash",
+                "models/gemini-2.0-flash"]
 
         # Optional: list models (debug only)
         try:
