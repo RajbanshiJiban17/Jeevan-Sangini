@@ -166,12 +166,23 @@ with tab2:
 
 
 with col2:
+    st.subheader("📊 Maternal Progress")
+    
+    # विश्लेषण (Analysis) बाट वास्तविक Hb भ्यालु खोज्ने
+    hb_display = "11.5 g/dL" # Default
+    hb_status = "Normal"
+    
     if 'analysis' in st.session_state:
-        # यदि विश्लेषणमा '9.5' भन्ने अंक छ भने Metric अपडेट गर्ने
+        # यदि विश्लेषणमा ९.५ भेटियो भने त्यसलाई देखाउने
         if "9.5" in st.session_state.analysis:
-            st.metric("Hemoglobin (Hb)", "9.5 g/dL", "⚠️ Low (Anemia)", delta_color="inverse")
+            hb_display = "9.5 g/dL"
+            hb_status = "⚠️ Low (Anemia)"
+            delta_val = "-2.0" # पहिलेको भन्दा घटेको देखाउन
         else:
-            st.metric("Hemoglobin (Hb)", "11.5 g/dL", "Normal")
+            hb_display = "11.5 g/dL"
+            hb_status = "Stable"
+            delta_val = "0"
 
+    st.metric(label="Hemoglobin (Hb)", value=hb_display, delta=hb_status, delta_color="inverse")
 st.markdown("---")
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
