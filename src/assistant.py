@@ -11,7 +11,7 @@ class HealthAssistant:
         # NEW SDK client
         self.client = genai.Client(api_key=api_key)
 
-        self.model = "gemini-1.5-flash"
+        self.model = "gemini-1.5-pro"
 
         # OPTIONAL: list available models (debug only)
         try:
