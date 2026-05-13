@@ -16,7 +16,7 @@ class HealthAssistant:
         except:
             try:
                 # फ्ल्यास चलेन भने प्रो (Pro) ट्राय गर्ने
-                self.model = genai.GenerativeModel('gemini-pro')
+                self.model = genai.GenerativeModel('gemini-2.0-pro')
             except Exception as e:
                 print(f"Model Load Error: {e}")
 
