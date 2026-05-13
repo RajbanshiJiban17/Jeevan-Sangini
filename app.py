@@ -154,35 +154,37 @@ with tab1:
                     
                     st.session_state.messages.append({"role": "assistant", "content": answer})
 
+import streamlit as st
+import os
+import io
+import PyPDF2
+from src.processor import process_pdf_to_vectorstore
+from src.assistant import HealthAssistant
+
+# कन्फिगरेसन र सेसन स्टेट (पहिलेकै कोड प्रयोग गर्ने...)
+# ... (Header र Sidebar कोड यथावत राख्नुहोस्)
+
 with tab2:
     col1, col2 = st.columns([1.5, 1])
     with col1:
         if 'analysis' in st.session_state:
             st.markdown(f"<div class='report-box'><h3>🔬 Lab Insights</h3>{st.session_state.analysis}</div>", unsafe_allow_html=True)
         else:
-            st.info("रिपोर्ट अपलोड गरेपछि यहाँ एआई विश्लेषण देखिनेछ।")
-    
-    # app.py को Tab 2 भित्रको col2 यसरी अपडेट गर्नुहोस्:
+            st.info("कृपया रिपोर्ट अपलोड गर्नुहोस्।")
 
+    with col2:
+        st.subheader("📊 Maternal Progress")
+        
+        hb_display = "11.5 g/dL" # Default
+        hb_status = "Stable"
+        delta_val = "0"
+        
+        if 'analysis' in st.session_state:
+            # विश्लेषणमा '9.5' भेटिएमा मात्र Metric अपडेट गर्ने
+            if "9.5" in st.session_state.analysis:
+                hb_display = "9.5 g/dL"
+                hb_status = "⚠️ Low (Anemia)"
+                delta_val = "-2.0"
 
-with col2:
-    st.subheader("📊 Maternal Progress")
-    
-    # विश्लेषण (Analysis) बाट वास्तविक Hb भ्यालु खोज्ने
-    hb_display = "11.5 g/dL" # Default
-    hb_status = "Normal"
-    
-    if 'analysis' in st.session_state:
-        # यदि विश्लेषणमा ९.५ भेटियो भने त्यसलाई देखाउने
-        if "9.5" in st.session_state.analysis:
-            hb_display = "9.5 g/dL"
-            hb_status = "⚠️ Low (Anemia)"
-            delta_val = "-2.0" # पहिलेको भन्दा घटेको देखाउन
-        else:
-            hb_display = "11.5 g/dL"
-            hb_status = "Stable"
-            delta_val = "0"
-
-    st.metric(label="Hemoglobin (Hb)", value=hb_display, delta=hb_status, delta_color="inverse")
-st.markdown("---")
+        st.metric(label="Hemoglobin (Hb)", value=hb_display, delta=hb_status, delta_color="inverse")
 st.caption("© 2026 Jeevan-Sangini | Built for Nepali Mothers | Powered by Gemma")
