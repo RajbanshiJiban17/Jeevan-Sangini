@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from src.processor import process_pdf_to_vectorstore
 from src.assistant import HealthAssistant
 
-
 # =========================================
 # CONFIG
 # =========================================
