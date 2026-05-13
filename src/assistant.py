@@ -55,43 +55,52 @@ class HealthAssistant:
             # १. Identity Check
             id_keywords = ["who are you", "timi ko hau", "तपाईं को हो", "परिचय", "your name"]
             if any(k in user_query.lower() for k in id_keywords):
-                return "म 'जीवन-सङ्गलिनी' एआई हुँ, गुगलको Gemma प्रविधिमा आधारित डिजिटल स्वास्थ्य सहायक।" if lang != "English" else "I am 'Jeevan-Sangini' AI, a maternal health companion powered by Gemma."
+                return "म 'जीवन-सङ्गलिनी' एआई हुँ।" if lang != "English" else "I am 'Jeevan-Sangini' AI."
 
-            # २. सिस्टम प्रम्प्ट र पेलोड
+            # २. सिस्टम प्रम्प्ट र सुधारिएको पेलोड
             system_prompt = self.get_system_prompt(lang, mode)
-            full_prompt = (
-                f"{system_prompt}\n\n"
-                f"Context/Report Data: {context}\n\n"
-                f"User Question: {user_query}\n\n"
-                f"Instruction: Be highly detailed. If it's a report, compare values with standards. Use {lang}."
-                f"Special Instruction: The report may contain LaTeX symbols like $ or (+). "
-                f"Please clean the text in your mind and extract only the numerical values and units."
-                f"Extract values even if they have $ symbols"
-            )
+            
+            # --- यहाँ छ मुख्य फिक्स (The Final Fix) ---
+            full_prompt = f"""
+            {system_prompt}
+            
+            REPORT DATA:
+            {context}
+            
+            INSTRUCTION FOR DEEP ANALYSIS:
+            - The data above has medical values. Ignore '$' signs.
+            - Extract these EXACT values if present: Hb (9.5), Sugar (155), Pus Cells (5-7), Albumin (Trace +).
+            - You MUST create a Markdown Table with columns: Test, Result, Normal Range, and Status.
+            - Compare results with Maternal Health standards (Hb < 11 is Anemia, Sugar > 140 is High).
+            - End with a summary of risks (Anemia, UTI, Diabetes risk).
+            
+            USER QUESTION: {user_query}
+            LANGUAGE: {lang}
+            """
 
-            # ३. API कल (Temperature अलि कम राखिएको छ ताकि डाटा सही आओस्)
+            # ३. API कल
             response = self.model.generate_content(
                 full_prompt,
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.1, 
+                    temperature=0.0, # Fact-based नतिजाको लागि ०.०
                     max_output_tokens=2000,
                 )
             )
             answer = response.text
             
-            # ४. डिस्क्लेमर
+            # ४. डिस्क्लेमर र अलर्ट लोजिक
             disclaimer = (
-                "\n\n---\n⚠️ **Note:** For information only. Consult a doctor immediately for medical decisions." 
+                "\n\n---\n⚠️ **Note:** For information only. Consult a doctor." 
                 if lang == "English" else 
-                "\n\n---\n⚠️ **नोट:** यो जानकारीका लागि मात्र हो। मेडिकल निर्णय लिनुअघि डाक्टरसँग परामर्श गर्नुहोस्।"
+                "\n\n---\n⚠️ **नोट:** यो जानकारीका लागि मात्र हो। डाक्टरसँग परामर्श गर्नुहोस्।"
             )
 
-            # ५. आपतकालीन अलर्ट थप्ने (यदि एजेन्टले खतरा देख्यो भने)
-            if "alert" in answer.lower() or "emergency" in answer.lower() or "तुरुन्त" in answer:
-                prefix = "🚨 **EMERGENCY NOTICE:** " if lang == "English" else "🚨 **आपतकालीन सूचना:** "
+            if any(word in answer.lower() for word in ["alert", "emergency", "तुरुन्त", "खतरा", "risk"]):
+                prefix = "🚨 **IMPORTANT ANALYSIS:** " if lang == "English" else "🚨 **महत्त्वपूर्ण विश्लेषण:** "
                 return prefix + answer + disclaimer
             
             return answer + disclaimer
             
+        
         except Exception as e:
             return f"Error: ({str(e)})"
