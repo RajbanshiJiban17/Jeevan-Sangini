@@ -83,7 +83,7 @@ if "sos_active" not in st.session_state:
 
 if "assistant" not in st.session_state:
     api_key = os.getenv("GEMINI_API_KEY")  # future fallback use
-    st.session_state.assistant = HealthAssistant(api_key=api_key)
+    st.session_state.assistant = HealthAssistant()
 
 # =========================================
 # SIDEBAR

@@ -5,14 +5,15 @@ class HealthAssistant:
 
     def __init__(self):
 
-        # ✅ GEMMA LOCAL MODEL (NO API NEEDED)
+        print("⏳ Loading Gemma model...")
+
         self.model = pipeline(
             "text-generation",
             model="google/gemma-2b-it",
             device_map="auto"
         )
 
-        print("✅ Gemma model loaded successfully")
+        print("✅ Gemma loaded successfully")
 
     def ask(self, user_query, context="", lang="नेपाली"):
 
@@ -26,11 +27,10 @@ class HealthAssistant:
 {context[:2000]}
 
 नियम:
-- सधैं {lang} भाषामा जवाफ देऊ।
-- सरल, स्पष्ट र helpful जवाफ देऊ।
-- medical emergency भए तुरुन्त doctor सल्लाह देऊ।
-- Hb 9.5 भन्दा कम भए anemia warning देऊ।
-- Nepal को maternal health focus गर।
+- सधैं {lang} भाषामा जवाफ देऊ
+- सरल र medical safe उत्तर देऊ
+- emergency भए doctor suggest गर
+- Hb 9.5 भन्दा कम भए anemia warning देऊ
 
 प्रश्न:
 {user_query}
@@ -38,15 +38,14 @@ class HealthAssistant:
 उत्तर:
 """
 
-            response = self.model(
+            result = self.model(
                 prompt,
                 max_new_tokens=300,
-                do_sample=True,
-                temperature=0.7
+                temperature=0.7,
+                do_sample=True
             )
 
-            # clean output
-            return response[0]["generated_text"]
+            return result[0]["generated_text"]
 
         except Exception as e:
             return f"🚨 Gemma Error: {str(e)}"
