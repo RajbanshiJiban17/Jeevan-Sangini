@@ -6,34 +6,36 @@ class HealthAssistant:
         if not api_key:
             raise ValueError("API Key is missing!")
         
+        # GenAI कन्फिगरेसन
         genai.configure(api_key=api_key)
         
-        # Gemma 4 को API भर्सन (gemini-1.5-flash) लोड गर्ने
-        # यसले Edge-based inference लाई सपोर्ट गर्छ
+        # उपलब्ध मोडेलहरू मध्ये सबैभन्दा राम्रो छान्ने (Error-free Logic)
+        self.model_name = 'gemini-1.5-flash'
         try:
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel(self.model_name)
         except:
             self.model = genai.GenerativeModel('gemini-pro')
 
     def ask(self, user_query, context="", lang="नेपाली"):
         try:
-            # Gemma 4 Optimized Agentic Prompt
+            # Free Tier को 'Rate Limit' बाट बच्न १ सेकेन्ड विश्राम
+            time.sleep(1)
+            
+            # प्रोफेशनल र सुरक्षित प्रोम्प्ट
             prompt = f"""
-            Role: You are 'Jeevan-Sangini', a specialized AI for maternal health in Nepal.
-            Grounded Context: {context[:2000]}
+            भूमिका: तिमी 'जीवन-सङ्गलिनी' (Jeevan-Sangini) एआई स्वास्थ्य सहायक हौ।
             
-            Instructions:
-            - Provide answers strictly in {lang} language.
-            - If medical values like Hb are < 10, strictly flag as "High Risk/🚨 उच्च जोखिम".
-            - Be empathetic, culturally appropriate, and professional.
-            - Always advise consulting a doctor.
+            सन्दर्भ (Context): {context[:1500]}
             
-            Query: {user_query}
+            नियमहरू:
+            १. सधैं {lang} भाषामा सरल र सहानुभूतिपूर्ण जवाफ देऊ।
+            २. मेडिकल रिपोर्टमा Hb (Hemoglobin) ९.५ भन्दा कम भए "🚨 उच्च जोखिम (Anemia)" चेतावनी अनिवार्य देऊ।
+            ३. सधैं "यो जानकारी डाक्टरको परामर्शको विकल्प होइन" भनी उल्लेख गर।
             
-            Gemma 4 Response:
+            प्रश्न: {user_query}
             """
             
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"🚨 Gemma Engine Error: {str(e)}"
+            return f"🚨 एआई सेवामा व्यस्तता आयो। कृपया १ मिनेटपछि प्रयास गर्नुहोस्। (Error: {str(e)})"

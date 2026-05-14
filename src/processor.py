@@ -5,30 +5,28 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
 def process_pdf_to_vectorstore(data_source="data/"):
-    """मेडिकल फाइलहरूलाई स्थानीय भेक्टर डेटाबेसमा बदल्छ (Offline Intelligence)"""
+    """स्थानीय PDF हरूलाई AI ले बुझ्ने गरी प्रोसेस गर्छ।"""
     if not os.path.exists(data_source) or not os.listdir(data_source):
         return None
 
     all_docs = []
     for file in os.listdir(data_source):
         if file.endswith(".pdf"):
-            path = os.path.join(data_source, file)
             try:
-                loader = PyPDFLoader(path)
+                loader = PyPDFLoader(os.path.join(data_source, file))
                 all_docs.extend(loader.load())
             except Exception as e:
                 print(f"Error loading {file}: {e}")
+                continue
 
-    if not all_docs:
-        return None
+    if not all_docs: return None
 
-    # Gemma 4 को लागि राम्रो कन्टेक्स्ट दिन टेक्स्टलाई टुक्रा पार्ने
-    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
+    # टेक्स्टलाई स-साना टुक्रामा बाँड्ने (Gemma को लागि सजिलो हुन्छ)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
     chunks = splitter.split_documents(all_docs)
 
-    # स्थानीय रूपमा चल्ने एम्बेडेड मोडेल (No API Key needed)
+    # फ्री एम्बेडेड मोडेल (यो डाउनलोड भएपछि अफलाइन चल्छ)
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
-    # स्थानीय FAISS डेटाबेस निर्माण
-    vector_db = FAISS.from_documents(chunks, embeddings)
-    return vector_db
+    # FAISS भेक्टर स्टोर निर्माण
+    return FAISS.from_documents(chunks, embeddings)
