@@ -18,63 +18,31 @@ def process_pdf_to_vectorstore(data_source="data/"):
 
             for file in os.listdir(data_source):
 
-                file_path = os.path.join(data_source, file)
+                path = os.path.join(data_source, file)
 
-                # PDF files
                 if file.endswith(".pdf"):
 
-                    loader = PyPDFLoader(file_path)
+                    loader = PyPDFLoader(path)
 
                     docs = loader.load()
 
                     all_documents.extend(docs)
 
-                # Parquet files
-                elif file.endswith(".parquet"):
-
-                    df = pd.read_parquet(file_path)
-
-                    for _, row in df.iterrows():
-
-                        content = f"""
-Question:
-{row.get('instruction', '')}
-
-Answer:
-{row.get('output', '')}
-"""
-
-                        all_documents.append(
-                            Document(page_content=content)
-                        )
-
-        # Clean text
-        for doc in all_documents:
-
-            doc.page_content = (
-                doc.page_content
-                .replace("\n", " ")
-                .replace("$", "")
-                .strip()
-            )
-
         if not all_documents:
-            print("⚠️ No documents found")
             return None
 
-        # Split chunks
+        # smaller chunks
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=100
+            chunk_size=400,
+            chunk_overlap=50
         )
 
         chunks = splitter.split_documents(all_documents)
 
         print(f"✅ Total chunks: {len(chunks)}")
 
-        # Local embeddings
         embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="all-MiniLM-L6-v2"
         )
 
         vectorstore = FAISS.from_documents(
@@ -82,12 +50,10 @@ Answer:
             embeddings
         )
 
-        print("✅ Vector DB ready")
-
         return vectorstore
 
     except Exception as e:
 
-        print(f"❌ Processor Error: {e}")
+        print("Processor Error:", e)
 
         return None

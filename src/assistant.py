@@ -5,16 +5,13 @@ class HealthAssistant:
 
     def __init__(self, api_key):
 
-        if not api_key:
-            raise ValueError("API Key missing")
-
         self.client = genai.Client(api_key=api_key)
 
-        # fallback models
+        # quota-safe models
         self.models = [
-                    "models/gemini-2.0-flash-lite"]
-
-        print("✅ Gemini client initialized successfully")
+            "models/gemini-2.0-flash-lite",
+            "models/gemini-2.0-flash"
+        ]
 
     def ask(self, user_query, context="", lang="नेपाली"):
 
@@ -22,40 +19,45 @@ class HealthAssistant:
 तिमी 'जीवन-सङ्गलिनी' AI Health Assistant हौ।
 
 सन्दर्भ:
-{context}
+{context[:1500]}
 
 नियम:
 - सधैं {lang} भाषामा जवाफ देऊ।
-- सरल, स्पष्ट र professional जवाफ देऊ।
-- Medical emergency भए तुरुन्त doctor सल्लाह देऊ।
+- छोटो, स्पष्ट जवाफ देऊ।
+- emergency भए doctor सल्लाह देऊ।
 - Hb 9.5 भन्दा कम भए anemia warning देऊ।
-- Lab report वा PDF analysis गर्दा values explain गर।
 
 प्रश्न:
 {user_query}
 """
 
-        # fallback system
         for model in self.models:
+
             try:
-                time.sleep(1)
+
+                print(f"Trying: {model}")
 
                 response = self.client.models.generate_content(
-                    model=model,   # ✅ FIXED HERE
+                    model=model,
                     contents=prompt
                 )
 
-                if response and hasattr(response, "text"):
+                if response and response.text:
                     return response.text
 
             except Exception as e:
-                error_message = str(e)
-                print(f"Error with model {model}: {error_message}")
-                
-                return f"""
-            Model Failed
-            
-            Model: {model}
-            Error: {error_message}
-            
-            """
+
+                print(f"Model Failed: {model}")
+                print(e)
+
+                if "429" in str(e):
+
+                    return """
+🚨 AI quota temporarily सकिएको छ।
+
+⏳ केही समयपछि फेरि प्रयास गर्नुहोस्।
+"""
+
+                continue
+
+        return "🚨 अहिले AI response उपलब्ध छैन।"
