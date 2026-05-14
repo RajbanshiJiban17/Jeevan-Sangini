@@ -9,7 +9,7 @@ class HealthAssistant:
 
         self.model = pipeline(
             "text-generation",
-            model="google/flan-t5-small",
+            model="google/flan-t5-base",
             device_map="auto"
         )
 
