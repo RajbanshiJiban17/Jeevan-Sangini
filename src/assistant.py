@@ -8,9 +8,8 @@ class HealthAssistant:
         print("⏳ Loading Gemma model...")
 
         self.model = pipeline(
-            "text-generation",
-            model="google/flan-t5-small",
-            device_map="auto"
+            "text2text-generation",
+            model="google/flan-t5-small"
         )
 
         print("✅ Gemma loaded successfully")
