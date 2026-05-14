@@ -51,7 +51,13 @@ class HealthAssistant:
                     return response.text
 
             except Exception as e:
-                print(f"Model failed {model}: {e}")
-                continue
-
-        return "🚨 AI Error: सबै models fail भए"
+                error_message = str(e)
+                print(f"Error with model {model}: {error_message}")
+                
+                return f"""
+            Model Failed
+            
+            Model: {model}
+            Error: {error_message}
+            
+            """
