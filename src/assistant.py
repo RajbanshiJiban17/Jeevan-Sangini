@@ -1,74 +1,39 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
+import google.generativeai as genai
 import time
 
-
 class HealthAssistant:
-
-    def __init__(self):
-
-        print("⏳ Loading AI model...")
-
-        model_name = "google/flan-t5-small"
-
-        # tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        # model
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-
-        print("✅ AI model loaded successfully")
+    def __init__(self, api_key):
+        if not api_key:
+            raise ValueError("API Key is missing!")
+        
+        genai.configure(api_key=api_key)
+        
+        # Gemma 4 को API भर्सन (gemini-1.5-flash) लोड गर्ने
+        # यसले Edge-based inference लाई सपोर्ट गर्छ
+        try:
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+        except:
+            self.model = genai.GenerativeModel('gemini-pro')
 
     def ask(self, user_query, context="", lang="नेपाली"):
-
         try:
-
-            time.sleep(0.2)
-
+            # Gemma 4 Optimized Agentic Prompt
             prompt = f"""
-तिमी 'जीवन-संगिनी' AI Health Assistant हौ।
-
-सन्दर्भ:
-{context[:1500]}
-
-नियम:
-- सधैं {lang} भाषामा जवाफ देऊ
-- सरल र safe medical उत्तर देऊ
-- emergency भए doctor सल्लाह देऊ
-- Hb 9.5 भन्दा कम भए anemia warning देऊ
-
-प्रश्न:
-{user_query}
-
-उत्तर:
-"""
-
-            # tokenize
-            inputs = self.tokenizer(
-                prompt,
-                return_tensors="pt",
-                truncation=True,
-                max_length=512
-            )
-
-            # generate
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=200,
-                temperature=0.7,
-                do_sample=True
-            )
-
-            # decode
-            answer = self.tokenizer.decode(
-                outputs[0],
-                skip_special_tokens=True
-            )
-
-            return answer
-
+            Role: You are 'Jeevan-Sangini', a specialized AI for maternal health in Nepal.
+            Grounded Context: {context[:2000]}
+            
+            Instructions:
+            - Provide answers strictly in {lang} language.
+            - If medical values like Hb are < 10, strictly flag as "High Risk/🚨 उच्च जोखिम".
+            - Be empathetic, culturally appropriate, and professional.
+            - Always advise consulting a doctor.
+            
+            Query: {user_query}
+            
+            Gemma 4 Response:
+            """
+            
+            response = self.model.generate_content(prompt)
+            return response.text
         except Exception as e:
-
-            print("AI ERROR:", e)
-
-            return f"🚨 AI Error: {str(e)}"
+            return f"🚨 Gemma Engine Error: {str(e)}"
