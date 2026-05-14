@@ -12,9 +12,7 @@ class HealthAssistant:
 
         # fallback models
         self.models = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite"
-        ]
+                    "models/gemini-2.0-flash-lite"]
 
         print("✅ Gemini client initialized successfully")
 
