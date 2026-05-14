@@ -1,5 +1,4 @@
 streamlit>=1.32.0
-
 google-genai>=0.5.0
 
 pandas
@@ -25,6 +24,5 @@ huggingface_hub
 torch
 torchvision
 
-# extra stability fix
 numpy
 tqdm

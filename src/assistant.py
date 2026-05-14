@@ -1,63 +1,52 @@
-from google import genai
+from transformers import pipeline
 import time
 
 class HealthAssistant:
 
-    def __init__(self, api_key):
+    def __init__(self):
 
-        self.client = genai.Client(api_key=api_key)
+        # ✅ GEMMA LOCAL MODEL (NO API NEEDED)
+        self.model = pipeline(
+            "text-generation",
+            model="google/gemma-2b-it",
+            device_map="auto"
+        )
 
-        # quota-safe models
-        self.models = [
-            "models/gemini-2.0-flash-lite",
-            "models/gemini-2.0-flash"
-        ]
+        print("✅ Gemma model loaded successfully")
 
     def ask(self, user_query, context="", lang="नेपाली"):
 
-        prompt = f"""
-तिमी 'जीवन-सङ्गलिनी' AI Health Assistant हौ।
+        try:
+            time.sleep(0.3)
+
+            prompt = f"""
+तिमी 'जीवन-संगिनी' AI Health Assistant हौ।
 
 सन्दर्भ:
-{context[:1500]}
+{context[:2000]}
 
 नियम:
 - सधैं {lang} भाषामा जवाफ देऊ।
-- छोटो, स्पष्ट जवाफ देऊ।
-- emergency भए doctor सल्लाह देऊ।
+- सरल, स्पष्ट र helpful जवाफ देऊ।
+- medical emergency भए तुरुन्त doctor सल्लाह देऊ।
 - Hb 9.5 भन्दा कम भए anemia warning देऊ।
+- Nepal को maternal health focus गर।
 
 प्रश्न:
 {user_query}
+
+उत्तर:
 """
 
-        for model in self.models:
+            response = self.model(
+                prompt,
+                max_new_tokens=300,
+                do_sample=True,
+                temperature=0.7
+            )
 
-            try:
+            # clean output
+            return response[0]["generated_text"]
 
-                print(f"Trying: {model}")
-
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=prompt
-                )
-
-                if response and response.text:
-                    return response.text
-
-            except Exception as e:
-
-                print(f"Model Failed: {model}")
-                print(e)
-
-                if "429" in str(e):
-
-                    return """
-🚨 AI quota temporarily सकिएको छ।
-
-⏳ केही समयपछि फेरि प्रयास गर्नुहोस्।
-"""
-
-                continue
-
-        return "🚨 अहिले AI response उपलब्ध छैन।"
+        except Exception as e:
+            return f"🚨 Gemma Error: {str(e)}"
