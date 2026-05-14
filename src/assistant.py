@@ -1,35 +1,43 @@
 from transformers import pipeline
 import time
 
+
 class HealthAssistant:
 
     def __init__(self):
 
-        print("⏳ Loading Gemma model...")
+        print("⏳ Loading AI model...")
 
+        # ✅ Streamlit Cloud safe model
         self.model = pipeline(
-            "text2text-generation",
+            task="text2text-generation",
             model="google/flan-t5-small"
         )
 
-        print("✅ Gemma loaded successfully")
+        print("✅ AI model loaded successfully")
 
     def ask(self, user_query, context="", lang="नेपाली"):
 
         try:
-            time.sleep(0.3)
 
+            time.sleep(0.2)
+
+            # ✅ context limit
+            safe_context = context[:1000]
+
+            # ✅ prompt
             prompt = f"""
 तिमी 'जीवन-संगिनी' AI Health Assistant हौ।
 
-सन्दर्भ:
-{context[:2000]}
-
 नियम:
-- सधैं {lang} भाषामा जवाफ देऊ
-- सरल र medical safe उत्तर देऊ
-- emergency भए doctor suggest गर
-- Hb 9.5 भन्दा कम भए anemia warning देऊ
+- सधैं {lang} भाषामा जवाफ देऊ।
+- छोटो, स्पष्ट र helpful जवाफ देऊ।
+- Medical emergency भए तुरुन्त doctor सल्लाह देऊ।
+- Hb 9.5 भन्दा कम भए anemia warning देऊ।
+- Nepal को maternal health focus गर।
+
+सन्दर्भ:
+{safe_context}
 
 प्रश्न:
 {user_query}
@@ -37,14 +45,27 @@ class HealthAssistant:
 उत्तर:
 """
 
+            # ✅ generate response
             result = self.model(
                 prompt,
-                max_new_tokens=300,
-                temperature=0.7,
-                do_sample=True
+                max_new_tokens=150,
+                do_sample=True,
+                temperature=0.5
             )
 
-            return result[0]["generated_text"]
+            # ✅ clean output
+            answer = result[0]["generated_text"]
+
+            answer = answer.replace(prompt, "").strip()
+
+            # empty safety
+            if not answer:
+                return "⚠️ उत्तर generate गर्न सकेन।"
+
+            return answer
 
         except Exception as e:
-            return f"🚨 Gemma Error: {str(e)}"
+
+            print("Assistant Error:", e)
+
+            return f"🚨 AI Error: {str(e)}"
