@@ -1,4 +1,5 @@
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 import time
 
 
@@ -8,11 +9,13 @@ class HealthAssistant:
 
         print("⏳ Loading AI model...")
 
-        # ✅ Streamlit Cloud safe model
-        self.model = pipeline(
-            task="text2text-generation",
-            model="google/flan-t5-small"
-        )
+        model_name = "google/flan-t5-small"
+
+        # tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        # model
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
         print("✅ AI model loaded successfully")
 
@@ -22,22 +25,17 @@ class HealthAssistant:
 
             time.sleep(0.2)
 
-            # ✅ context limit
-            safe_context = context[:1000]
-
-            # ✅ prompt
             prompt = f"""
 तिमी 'जीवन-संगिनी' AI Health Assistant हौ।
 
-नियम:
-- सधैं {lang} भाषामा जवाफ देऊ।
-- छोटो, स्पष्ट र helpful जवाफ देऊ।
-- Medical emergency भए तुरुन्त doctor सल्लाह देऊ।
-- Hb 9.5 भन्दा कम भए anemia warning देऊ।
-- Nepal को maternal health focus गर।
-
 सन्दर्भ:
-{safe_context}
+{context[:1500]}
+
+नियम:
+- सधैं {lang} भाषामा जवाफ देऊ
+- सरल र safe medical उत्तर देऊ
+- emergency भए doctor सल्लाह देऊ
+- Hb 9.5 भन्दा कम भए anemia warning देऊ
 
 प्रश्न:
 {user_query}
@@ -45,27 +43,32 @@ class HealthAssistant:
 उत्तर:
 """
 
-            # ✅ generate response
-            result = self.model(
+            # tokenize
+            inputs = self.tokenizer(
                 prompt,
-                max_new_tokens=150,
-                do_sample=True,
-                temperature=0.5
+                return_tensors="pt",
+                truncation=True,
+                max_length=512
             )
 
-            # ✅ clean output
-            answer = result[0]["generated_text"]
+            # generate
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=200,
+                temperature=0.7,
+                do_sample=True
+            )
 
-            answer = answer.replace(prompt, "").strip()
-
-            # empty safety
-            if not answer:
-                return "⚠️ उत्तर generate गर्न सकेन।"
+            # decode
+            answer = self.tokenizer.decode(
+                outputs[0],
+                skip_special_tokens=True
+            )
 
             return answer
 
         except Exception as e:
 
-            print("Assistant Error:", e)
+            print("AI ERROR:", e)
 
             return f"🚨 AI Error: {str(e)}"

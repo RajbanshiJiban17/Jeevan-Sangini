@@ -1,8 +1,8 @@
 streamlit>=1.32.0
-google-genai>=0.5.0
 
-pandas
-pyarrow
+transformers==4.41.2
+torch==2.3.0
+sentencepiece
 
 langchain
 langchain-community
@@ -21,8 +21,7 @@ gTTS
 
 huggingface_hub
 
-torch
-torchvision
-
+pandas
+pyarrow
 numpy
 tqdm
