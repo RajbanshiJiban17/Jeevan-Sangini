@@ -26,12 +26,23 @@ def get_gemini_api_key() -> str | None:
     return None
 
 
-def resolve_backend(ollama_ok: bool) -> str:
+def resolve_backend(ollama_ok: bool, user_choice: str | None = None) -> str:
+    """
+    user_choice: 'ollama' | 'gemini' | None (auto)
+    Local laptop: auto prefers Ollama when running (offline-first).
+    """
+    if user_choice == "ollama":
+        return "ollama" if ollama_ok else "none"
+    if user_choice == "gemini":
+        return "gemini" if get_gemini_api_key() else "none"
+
     forced = (os.getenv("LLM_BACKEND") or "auto").lower().strip()
     if forced == "ollama":
         return "ollama" if ollama_ok else "none"
     if forced == "gemini":
         return "gemini" if get_gemini_api_key() else "none"
+
+    # auto: offline-first on local machine
     if ollama_ok:
         return "ollama"
     if get_gemini_api_key():

@@ -1,4 +1,4 @@
-"""Jeevan-Sangini — hybrid: Ollama (local CPU) or Gemini (Streamlit Cloud)."""
+"""Jeevan-Sangini — hybrid: Ollama (local) or Gemini (cloud)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Ensure imports work on Streamlit Cloud
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -22,8 +21,8 @@ load_dotenv()
 from src.assistant import HealthAssistant
 from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL
 from src.emergency import assess_emergency
-from src.ollama_client import is_ollama_running, model_available
-from src.runtime import is_streamlit_cloud, rag_enabled, resolve_backend
+from src.ollama_client import is_ollama_running, list_models, model_available
+from src.runtime import get_gemini_api_key, is_streamlit_cloud, rag_enabled, resolve_backend
 from src.tts import text_to_speech
 
 st.set_page_config(
@@ -36,23 +35,82 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .stApp { background-color: #fffafb; }
+    .stApp {
+        background: linear-gradient(165deg, #fff5f7 0%, #fce4ec 45%, #f8bbd0 100%);
+    }
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #4a1942 0%, #6d1b4d 100%) !important;
+        border-right: 3px solid #ff4b6b;
+    }
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #ffffff !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stNumberInput label,
+    [data-testid="stSidebar"] .stCheckbox label {
+        color: #ffe4ec !important;
+        font-weight: 600;
+    }
+    [data-testid="stFileUploader"] {
+        background: #ffffff !important;
+        border: 2px dashed #ff4b6b !important;
+        border-radius: 12px !important;
+        padding: 0.5rem !important;
+    }
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] small {
+        color: #374151 !important;
+    }
+    .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 1100px;
+    }
     .report-card {
-        padding: 1.25rem; border-radius: 12px; background: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #1f2937;
         border-left: 8px solid #ff4b6b;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
     }
     .sos-box {
-        padding: 0.75rem 1rem; border-radius: 8px;
-        background: #fff0f3; border: 1px solid #ff4b6b;
+        padding: 0.85rem 1rem;
+        border-radius: 10px;
+        background: #ffebee;
+        color: #b71c1c !important;
+        border: 2px solid #ef5350;
+        font-weight: 600;
     }
+    .status-box {
+        padding: 0.6rem 0.9rem;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+    .status-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #66bb6a; }
+    .status-bad { background: #ffebee; color: #b71c1c; border: 1px solid #ef5350; }
     .mode-pill {
-        display: inline-block; padding: 0.35rem 0.75rem;
-        border-radius: 999px; font-size: 0.85rem; margin-bottom: 0.5rem;
+        display: inline-block;
+        padding: 0.4rem 1rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
     }
-    .mode-local { background: #e8f5e9; color: #2e7d32; }
-    .mode-cloud { background: #e3f2fd; color: #1565c0; }
-  </style>
+    .mode-local { background: #2e7d32; color: #fff; }
+    .mode-cloud { background: #1565c0; color: #fff; }
+    div[data-testid="stChatMessage"] {
+        background: rgba(255,255,255,0.85);
+        border-radius: 12px;
+        padding: 0.5rem;
+    }
+    </style>
     """,
     unsafe_allow_html=True,
 )
@@ -67,86 +125,101 @@ for key, default in [
     ("offline_voice", not is_streamlit_cloud()),
     ("vector_db", None),
     ("rag_loaded", False),
+    ("ai_mode", "auto"),
+    ("active_backend", None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
-# --- Backend ---
 _ollama_up = is_ollama_running()
-BACKEND = resolve_backend(_ollama_up)
+_ollama_models = list_models() if _ollama_up else []
+_has_gemini = bool(get_gemini_api_key())
 on_cloud = is_streamlit_cloud()
+
+# --- Sidebar: AI mode (first) ---
+with st.sidebar:
+    st.header("⚙️ सेटिङ")
+
+    if _ollama_up:
+        st.markdown(
+            '<div class="status-box status-ok">🟢 Ollama चलिरहेको छ (Offline)</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption("Models: " + ", ".join(_ollama_models[:3]) or "—")
+    else:
+        st.markdown(
+            '<div class="status-box status-bad">🔴 Ollama बन्द छ<br>'
+            "<small>Terminal: <b>ollama serve</b></small></div>",
+            unsafe_allow_html=True,
+        )
+
+    mode_options = ["auto (सिफारिस)"]
+    mode_map = {"auto (सिफारिस)": None}
+    if _ollama_up:
+        mode_options.append("अफलाइन Ollama")
+        mode_map["अफलाइन Ollama"] = "ollama"
+    if _has_gemini:
+        mode_options.append("अनलाइन Gemini")
+        mode_map["अनलाइन Gemini"] = "gemini"
+
+    choice_label = st.radio("AI मोड", mode_options, index=0)
+    user_backend_choice = mode_map.get(choice_label)
+
+    if not _ollama_up and user_backend_choice != "gemini":
+        st.warning("Offline को लागि अर्को terminal मा: `ollama serve`")
+
+    st.divider()
+
+BACKEND = resolve_backend(_ollama_up, user_backend_choice)
 
 if BACKEND == "none":
     st.error("🚨 AI backend उपलब्ध छैन")
-    if on_cloud:
-        st.markdown(
-            """
-            **Streamlit Cloud मा:**
-            1. [share.streamlit.io](https://share.streamlit.io) → तपाईंको app → **Settings → Secrets**
-            2. यो थप्नुहोस्:
-            ```toml
-            GOOGLE_API_KEY = "तपाईंको-gemini-key"
-            ```
-            3. **Save** → **Reboot app**
-
-            API key: [Google AI Studio](https://aistudio.google.com/apikey)
-            """
-        )
-    else:
-        st.markdown(
-            f"""
-            **छिटो (Ollama download छैन):** `.env` मा:
-            ```
-            LLM_BACKEND=gemini
-            GOOGLE_API_KEY=तपाईंको-key
-            ```
-            Key: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-
-            **अफलाइन Ollama (सानो ~1.6 GB):**
-            1. `ollama serve`
-            2. `ollama pull gemma2:2b`  (वा `llama3.2:1b` ~1.3 GB)
-            3. `.env` मा `OLLAMA_MODEL=gemma2:2b`
-            4. `streamlit run app.py`
-
-            ⚠️ `gemma4:e2b` ~7+ GB — slow internet मा नडाउनलोड गर्नुहोस्।
-            """
-        )
+    st.markdown(
+        """
+        **Offline:** `ollama serve` → `ollama pull gemma2:2b`  
+        **Online:** `.env` मा `GOOGLE_API_KEY=...`  
+        **वा** sidebar मा Gemini मोड छान्नुहोस्।
+        """
+    )
     st.stop()
 
-if "assistant" not in st.session_state:
+# Assistant (recreate if backend changed)
+if (
+    "assistant" not in st.session_state
+    or st.session_state.active_backend != BACKEND
+):
     st.session_state.assistant = HealthAssistant(backend=BACKEND)
+    st.session_state.active_backend = BACKEND
 
-@st.cache_resource(show_spinner="गाइडलाइन लोड हुँदैछ (पहिलो पटक ढिलो हुन सक्छ)...")
+
+@st.cache_resource(show_spinner="गाइडलाइन लोड...")
 def load_vector_db():
     from src.processor import process_pdf_to_vectorstore
 
     return process_pdf_to_vectorstore(DATA_DIR)
 
-# --- Header ---
+
+# --- Main header ---
 st.title("🤰 Jeevan-Sangini AI")
 mode_class = "mode-local" if BACKEND == "ollama" else "mode-cloud"
 mode_label = (
-    f"🖥️ Local · Ollama · {OLLAMA_MODEL}"
+    f"🖥️ Offline · Ollama · {OLLAMA_MODEL}"
     if BACKEND == "ollama"
-    else f"☁️ Cloud · Gemini · {GEMINI_MODEL}"
+    else f"☁️ Online · Gemini · {GEMINI_MODEL}"
 )
 st.markdown(f'<span class="mode-pill {mode_class}">{mode_label}</span>', unsafe_allow_html=True)
 
 if BACKEND == "ollama" and not model_available(OLLAMA_MODEL):
-    st.warning(f"⚠️ `ollama pull {OLLAMA_MODEL}` चलाउनुहोस् (CPU-friendly सानो मोडेल)")
+    st.error(f"मोडेल `{OLLAMA_MODEL}` छैन। Terminal: `ollama pull {OLLAMA_MODEL}`")
 
-if on_cloud:
-    st.info(
-        "यो लिंक **Gemini cloud** मा चल्छ। पूर्ण **offline Ollama** का लागि ल्यापटपमा "
-        "`pip install -r requirements-local.txt` र `streamlit run app.py` गर्नुहोस्।"
-    )
+if BACKEND == "gemini" and not on_cloud and _ollama_up:
+    st.info("💡 Offline चाहनुहुन्छ? Sidebar → **अफलाइन Ollama** छान्नुहोस्।")
 
-st.warning("⚠️ जानकारी मात्र। निदान होइन। आपतकालमा तुरुन्त स्वास्थ्य चौकी/अस्पताल।")
+st.warning("⚠️ जानकारी मात्र। आपतकालमा तुरुन्त स्वास्थ्य चौकी/अस्पताल।")
 
-# --- Sidebar ---
+# --- Sidebar continued ---
 with st.sidebar:
-    st.header("⚙️ सेटिङ")
-    st.caption(f"Backend: **{BACKEND}**")
+    st.caption(f"Active: **{BACKEND}**")
 
     st.session_state.lang_pref = st.selectbox(
         "भाषा",
@@ -158,10 +231,7 @@ with st.sidebar:
 
     st.session_state.voice_enabled = st.checkbox("🔊 आवाज जवाफ", value=st.session_state.voice_enabled)
     if not on_cloud:
-        st.session_state.offline_voice = st.checkbox(
-            "अफलाइन TTS",
-            value=st.session_state.offline_voice,
-        )
+        st.session_state.offline_voice = st.checkbox("अफलाइन TTS", value=st.session_state.offline_voice)
 
     st.markdown(
         '<div class="sos-box">🆘 SOS<br>एम्बुलेन्स: 102<br>प्रहरी: 100</div>',
@@ -206,27 +276,14 @@ with st.sidebar:
 
     st.divider()
     st.subheader("📚 गाइडलाइन (RAG)")
-    st.caption("वैकल्पिक · पहिलो पटक मात्र लोड गर्नुहोस्")
-    if st.button("गाइडलाइन लोड गर्नुहोस्", use_container_width=True):
-        with st.spinner("लोड हुँदैछ..."):
+    if st.button("गाइडलाइन लोड", use_container_width=True):
+        with st.spinner("लोड..."):
             try:
                 st.session_state.vector_db = load_vector_db()
                 st.session_state.rag_loaded = st.session_state.vector_db is not None
-                if st.session_state.rag_loaded:
-                    st.success("गाइडलाइन तयार!")
-                else:
-                    st.warning(f"`{DATA_DIR}/` मा PDF राख्नुहोस्।")
+                st.success("तयार!" if st.session_state.rag_loaded else f"`{DATA_DIR}/` मा PDF राख्नुहोस्")
             except Exception as exc:
-                st.error(f"RAG विफल: {exc}")
-    if st.session_state.rag_loaded:
-        st.success("RAG सक्रिय")
-    if rag_enabled() and st.button("RAG पुन: बनाउनु", use_container_width=True):
-        st.cache_resource.clear()
-        from src.processor import process_pdf_to_vectorstore
-
-        st.session_state.vector_db = process_pdf_to_vectorstore(DATA_DIR, force_rebuild=True)
-        st.session_state.rag_loaded = True
-        st.rerun()
+                st.error(str(exc))
 
     if st.button("🗑️ च्याट मेटाउनु", use_container_width=True):
         st.session_state.messages = []
@@ -253,16 +310,16 @@ with tab_chat:
             st.markdown(prompt)
 
         ctx = ""
-        vdb = st.session_state.vector_db
-        if vdb:
+        if st.session_state.vector_db:
             try:
-                docs = vdb.similarity_search(prompt, k=2)
+                docs = st.session_state.vector_db.similarity_search(prompt, k=2)
                 ctx = "\n".join(d.page_content for d in docs)
             except Exception:
                 pass
 
         with st.chat_message("assistant"):
-            with st.spinner("विश्लेषण..."):
+            label = "Offline AI..." if BACKEND == "ollama" else "विश्लेषण..."
+            with st.spinner(label):
                 ans = st.session_state.assistant.ask(
                     prompt,
                     context=ctx,
@@ -296,7 +353,7 @@ with tab_track:
     if w:
         tri = "१" if w <= 13 else ("२" if w <= 27 else "३")
         st.subheader(f"हप्ता {w} · त्राइमेस्टर {tri}")
-        st.markdown("ANC · दालभात साग · पानी · आराम · गम्भीर लक्षणमा तुरुन्त डाक्टर")
+        st.markdown("ANC · दालभात साग · पानी · आराम")
     else:
         st.info("साइडबारमा हप्ता राख्नुहोस्।")
 
