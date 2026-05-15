@@ -23,9 +23,7 @@ from src.assistant import HealthAssistant
 from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL
 from src.emergency import assess_emergency
 from src.ollama_client import is_ollama_running, model_available
-from src.processor import process_pdf_to_vectorstore
 from src.runtime import is_streamlit_cloud, rag_enabled, resolve_backend
-from src.stt import transcribe_audio
 from src.tts import text_to_speech
 
 st.set_page_config(
@@ -67,6 +65,8 @@ for key, default in [
     ("lang_pref", "नेपाली"),
     ("voice_enabled", True),
     ("offline_voice", not is_streamlit_cloud()),
+    ("vector_db", None),
+    ("rag_loaded", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -95,13 +95,20 @@ if BACKEND == "none":
     else:
         st.markdown(
             f"""
-            **ल्यापटप (CPU, CUDA छैन):**
-            1. [Ollama](https://ollama.com) install
-            2. `ollama serve`
-            3. सानो मोडेल (CPU): `ollama pull {OLLAMA_MODEL}`
+            **छिटो (Ollama download छैन):** `.env` मा:
+            ```
+            LLM_BACKEND=gemini
+            GOOGLE_API_KEY=तपाईंको-key
+            ```
+            Key: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
+            **अफलाइन Ollama (सानो ~1.6 GB):**
+            1. `ollama serve`
+            2. `ollama pull gemma2:2b`  (वा `llama3.2:1b` ~1.3 GB)
+            3. `.env` मा `OLLAMA_MODEL=gemma2:2b`
             4. `streamlit run app.py`
 
-            वा `.env` मा `GOOGLE_API_KEY=...` राख्नुहोस् (cloud जस्तै)।
+            ⚠️ `gemma4:e2b` ~7+ GB — slow internet मा नडाउनलोड गर्नुहोस्।
             """
         )
     st.stop()
@@ -109,20 +116,11 @@ if BACKEND == "none":
 if "assistant" not in st.session_state:
     st.session_state.assistant = HealthAssistant(backend=BACKEND)
 
-# --- RAG (lazy; off on cloud by default) ---
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner="गाइडलाइन लोड हुँदैछ (पहिलो पटक ढिलो हुन सक्छ)...")
 def load_vector_db():
-    if not rag_enabled():
-        return None
-    try:
-        return process_pdf_to_vectorstore(DATA_DIR)
-    except Exception as exc:
-        st.warning(f"RAG load skipped: {exc}")
-        return None
+    from src.processor import process_pdf_to_vectorstore
 
-
-if "vector_db" not in st.session_state:
-    st.session_state.vector_db = load_vector_db()
+    return process_pdf_to_vectorstore(DATA_DIR)
 
 # --- Header ---
 st.title("🤰 Jeevan-Sangini AI")
@@ -193,6 +191,8 @@ with st.sidebar:
         st.subheader("🎤 आवाज")
         audio = st.file_uploader("अडियो", type=["wav", "mp3", "m4a"])
         if audio and st.button("बुझ्नुहोस्", use_container_width=True):
+            from src.stt import transcribe_audio
+
             suf = os.path.splitext(audio.name)[-1] or ".wav"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suf) as tmp:
                 tmp.write(audio.getvalue())
@@ -204,9 +204,28 @@ with st.sidebar:
                 st.session_state.messages.append({"role": "user", "content": txt})
                 st.rerun()
 
-    if rag_enabled() and st.button("📚 RAG reload", use_container_width=True):
+    st.divider()
+    st.subheader("📚 गाइडलाइन (RAG)")
+    st.caption("वैकल्पिक · पहिलो पटक मात्र लोड गर्नुहोस्")
+    if st.button("गाइडलाइन लोड गर्नुहोस्", use_container_width=True):
+        with st.spinner("लोड हुँदैछ..."):
+            try:
+                st.session_state.vector_db = load_vector_db()
+                st.session_state.rag_loaded = st.session_state.vector_db is not None
+                if st.session_state.rag_loaded:
+                    st.success("गाइडलाइन तयार!")
+                else:
+                    st.warning(f"`{DATA_DIR}/` मा PDF राख्नुहोस्।")
+            except Exception as exc:
+                st.error(f"RAG विफल: {exc}")
+    if st.session_state.rag_loaded:
+        st.success("RAG सक्रिय")
+    if rag_enabled() and st.button("RAG पुन: बनाउनु", use_container_width=True):
         st.cache_resource.clear()
+        from src.processor import process_pdf_to_vectorstore
+
         st.session_state.vector_db = process_pdf_to_vectorstore(DATA_DIR, force_rebuild=True)
+        st.session_state.rag_loaded = True
         st.rerun()
 
     if st.button("🗑️ च्याट मेटाउनु", use_container_width=True):

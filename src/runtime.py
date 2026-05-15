@@ -40,8 +40,5 @@ def resolve_backend(ollama_ok: bool) -> str:
 
 
 def rag_enabled() -> bool:
-    if os.getenv("ENABLE_RAG", "").lower() in ("0", "false", "no"):
-        return False
-    if is_streamlit_cloud() and os.getenv("ENABLE_RAG", "").lower() not in ("1", "true", "yes"):
-        return False
-    return True
+    """RAG is opt-in only (avoids torch/langchain on every app start)."""
+    return os.getenv("ENABLE_RAG", "").lower() in ("1", "true", "yes")

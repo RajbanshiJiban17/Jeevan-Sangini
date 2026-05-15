@@ -1,11 +1,14 @@
 # Local PC: Ollama + RAG + voice (CPU)
 -r requirements.txt
+numpy>=1.26.0,<2.0.0
 langchain>=0.3.0
+langchain-huggingface>=0.1.0
 langchain-community>=0.3.0
 langchain-core>=0.3.0
 langchain-text-splitters>=0.3.0
 faiss-cpu>=1.7.4
 sentence-transformers>=2.2.0
-torch>=2.0.0
+# CPU-only torch (torchvision NOT needed — do not install separately)
+torch>=2.2.0,<2.4.0
 pyttsx3>=2.90
 faster-whisper>=1.0.0

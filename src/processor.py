@@ -17,14 +17,23 @@ def _folder_fingerprint(data_source: str) -> str:
 
 def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bool = False):
     """Build FAISS index from PDFs. Returns None if RAG deps missing or no PDFs."""
+    # CPU-only (no CUDA required)
+    os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
     try:
         from langchain_community.document_loaders import PyPDFLoader
-        from langchain_community.embeddings import HuggingFaceEmbeddings
         from langchain_community.vectorstores import FAISS
         from langchain_text_splitters import RecursiveCharacterTextSplitter
-    except ImportError:
-        print("RAG skipped: langchain not installed")
-        return None
+
+        try:
+            from langchain_huggingface import HuggingFaceEmbeddings
+        except ImportError:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+    except ImportError as exc:
+        raise ImportError(
+            "RAG को लागि: pip install -r requirements-local.txt"
+        ) from exc
 
     data_source = data_source or DATA_DIR
     if not os.path.exists(data_source):
@@ -40,7 +49,10 @@ def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bo
     meta_path = os.path.join(cache_dir, "fingerprint.txt")
     index_path = os.path.join(cache_dir, "index.faiss")
 
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        model_kwargs={"device": "cpu"},
+    )
 
     if (
         not force_rebuild
