@@ -57,21 +57,25 @@ def is_ollama_running(base_url=None) -> bool:
 def list_models(base_url=None) -> list[str]:
     target_url = (base_url or OLLAMA_BASE_URL).rstrip('/')
     try:
-        req = request.Request(f"{target_url}/api/tags", headers=NGROK_HEADERS, method="GET")
+        # यहाँ STRICT_HEADERS प्रयोग गर्नैपर्छ
+        req = request.Request(f"{target_url}/api/tags", headers=STRICT_HEADERS, method="GET")
         context = ssl._create_unverified_context()
         with request.urlopen(req, timeout=10, context=context) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return [m.get("name", "") for m in data.get("models", [])]
-    except Exception:
+            # डाटाभित्र 'models' कि (key) छ कि छैन चेक गर्ने
+            return [m.get("name", "") for m in data.get("models", [])]
+    except Exception as e:
+        print(f"DEBUG List Models Failed: {e}")
         return []
 
 def model_available(model: str, base_url=None) -> bool:
-    names = list_models(base_url=base_url)
+    # यहाँ base_url पठाउनु अनिवार्य छ
+    names = list_models(base_url=base_url) 
     if not names:
         return False
-    base = model.split(":")[0]
-    return any(n == model or n.startswith(f"{base}:") or n.startswith(base) for n in names)
-
+    
+    # मोडेलको नाम ठ्याक्कै मिल्छ कि मिल्दैन हेर्ने
+    return any(n == model or n.startswith(f"{model}:") for n in names)
 def chat(
     messages: list[dict],
     model: Optional[str] = None,
