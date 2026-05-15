@@ -1,32 +1,85 @@
+import hashlib
 import os
+
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def process_pdf_to_vectorstore(data_source="data/"):
-    """स्थानीय PDF हरूलाई AI ले बुझ्ने गरी प्रोसेस गर्छ।"""
-    if not os.path.exists(data_source) or not os.listdir(data_source):
+from src.config import DATA_DIR, EMBEDDING_MODEL, VECTOR_CACHE_DIR
+
+
+def _folder_fingerprint(data_source: str) -> str:
+    if not os.path.isdir(data_source):
+        return ""
+    parts: list[str] = []
+    for name in sorted(os.listdir(data_source)):
+        if name.endswith(".pdf"):
+            path = os.path.join(data_source, name)
+            parts.append(f"{name}:{os.path.getmtime(path)}:{os.path.getsize(path)}")
+    raw = "|".join(parts)
+    return hashlib.md5(raw.encode()).hexdigest() if raw else ""
+
+
+def _get_embeddings():
+    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+
+
+def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bool = False):
+    """Load PDFs from data/, build or load cached FAISS (works offline after first download)."""
+    data_source = data_source or DATA_DIR
+    if not os.path.exists(data_source):
+        os.makedirs(data_source, exist_ok=True)
         return None
 
+    pdfs = [f for f in os.listdir(data_source) if f.lower().endswith(".pdf")]
+    if not pdfs:
+        return None
+
+    fingerprint = _folder_fingerprint(data_source)
+    cache_dir = VECTOR_CACHE_DIR
+    meta_path = os.path.join(cache_dir, "fingerprint.txt")
+    index_path = os.path.join(cache_dir, "index.faiss")
+
+    embeddings = _get_embeddings()
+
+    if (
+        not force_rebuild
+        and fingerprint
+        and os.path.isfile(index_path)
+        and os.path.isfile(meta_path)
+    ):
+        try:
+            with open(meta_path, encoding="utf-8") as f:
+                saved = f.read().strip()
+            if saved == fingerprint:
+                return FAISS.load_local(
+                    cache_dir,
+                    embeddings,
+                    allow_dangerous_deserialization=True,
+                )
+        except Exception as e:
+            print(f"Vector cache load failed, rebuilding: {e}")
+
     all_docs = []
-    for file in os.listdir(data_source):
-        if file.endswith(".pdf"):
-            try:
-                loader = PyPDFLoader(os.path.join(data_source, file))
-                all_docs.extend(loader.load())
-            except Exception as e:
-                print(f"Error loading {file}: {e}")
-                continue
+    for file in pdfs:
+        try:
+            loader = PyPDFLoader(os.path.join(data_source, file))
+            all_docs.extend(loader.load())
+        except Exception as e:
+            print(f"Error loading {file}: {e}")
 
-    if not all_docs: return None
+    if not all_docs:
+        return None
 
-    # टेक्स्टलाई स-साना टुक्रामा बाँड्ने (Gemma को लागि सजिलो हुन्छ)
     splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
     chunks = splitter.split_documents(all_docs)
+    db = FAISS.from_documents(chunks, embeddings)
 
-    # फ्री एम्बेडेड मोडेल (यो डाउनलोड भएपछि अफलाइन चल्छ)
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    
-    # FAISS भेक्टर स्टोर निर्माण
-    return FAISS.from_documents(chunks, embeddings)
+    os.makedirs(cache_dir, exist_ok=True)
+    db.save_local(cache_dir)
+    if fingerprint:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(fingerprint)
+
+    return db
