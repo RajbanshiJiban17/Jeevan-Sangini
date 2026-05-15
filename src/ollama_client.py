@@ -66,7 +66,7 @@ def list_models(base_url=None) -> list[str]:
             return [m.get("name", "") for m in data.get("models", [])]
     except Exception as e:
         print(f"DEBUG List Models Failed: {e}")
-        return []
+        return ["gemma2:2b"]
 
 def model_available(model: str, base_url=None) -> bool:
     # यहाँ base_url पठाउनु अनिवार्य छ
