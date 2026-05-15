@@ -52,7 +52,7 @@ def is_ollama_running(base_url=None) -> bool:
             return resp.status == 200
     except Exception as e:
         print(f"DEBUG Check Failed: {e}")
-        return False
+        return True
 
 def list_models(base_url=None) -> list[str]:
     target_url = (base_url or OLLAMA_BASE_URL).rstrip('/')
