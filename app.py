@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.assistant import HealthAssistant
-from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL,OLLAMA_BASE_URL
+from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL, OLLAMA_BASE_URL
 from src.emergency import assess_emergency
 from src.ollama_client import is_ollama_running, list_models, model_available
 from src.runtime import get_gemini_api_key, is_streamlit_cloud, rag_enabled, resolve_backend
@@ -32,90 +32,76 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# --- UI FIX: White/Text Visibility ---
 st.markdown(
     """
     <style>
+    /* मुख्य ब्याकग्राउन्ड र फन्ट सुधार */
     .stApp {
         background: linear-gradient(165deg, #fff5f7 0%, #fce4ec 45%, #f8bbd0 100%);
     }
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #4a1942 0%, #6d1b4d 100%) !important;
-        border-right: 3px solid #ff4b6b;
+    
+    /* च्याट भित्रका अक्षरहरूलाई एकदमै स्पष्ट बनाउने */
+    .stMarkdown p, .stMarkdown li {
+        color: #1a1a1a !important; /* गाढा कालो */
+        font-weight: 450 !important;
+        font-size: 1.05rem !important;
+        line-height: 1.6 !important;
     }
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] .stMarkdown {
+
+    /* च्याट मेसेज बक्स सुधार */
+    div[data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid #ffccd5;
+        border-radius: 15px !important;
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    /* Sidebar का अक्षरहरू */
+    [data-testid="stSidebar"] label {
         color: #ffffff !important;
+        font-size: 1rem !important;
     }
-    [data-testid="stSidebar"] .stSelectbox label,
-    [data-testid="stSidebar"] .stNumberInput label,
-    [data-testid="stSidebar"] .stCheckbox label {
-        color: #ffe4ec !important;
-        font-weight: 600;
+
+    /* Tab अक्षरहरू */
+    button[data-baseweb="tab"] p {
+        color: #4a1942 !important;
+        font-weight: 600 !important;
     }
-    [data-testid="stFileUploader"] {
-        background: #ffffff !important;
-        border: 2px dashed #ff4b6b !important;
-        border-radius: 12px !important;
-        padding: 0.5rem !important;
+
+    /* Warning/Error सन्देशको टेक्स्ट */
+    div[data-testid="stNotification"] p {
+        color: #333333 !important;
+        font-weight: 500 !important;
     }
-    [data-testid="stFileUploader"] label,
-    [data-testid="stFileUploader"] small {
-        color: #374151 !important;
-    }
-    .main .block-container {
-        padding-top: 1.5rem;
-        max-width: 1100px;
-    }
+
     .report-card {
-        padding: 1.25rem;
+        padding: 1.5rem;
         border-radius: 12px;
         background: #ffffff;
-        color: #1f2937;
+        color: #1a1a1a;
         border-left: 8px solid #ff4b6b;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
-    .sos-box {
-        padding: 0.85rem 1rem;
-        border-radius: 10px;
-        background: #ffebee;
-        color: #b71c1c !important;
-        border: 2px solid #ef5350;
-        font-weight: 600;
-    }
-    .status-box {
-        padding: 0.6rem 0.9rem;
-        border-radius: 8px;
-        margin-bottom: 0.75rem;
-        font-size: 0.9rem;
-    }
-    .status-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #66bb6a; }
-    .status-bad { background: #ffebee; color: #b71c1c; border: 1px solid #ef5350; }
+    
     .mode-pill {
         display: inline-block;
         padding: 0.4rem 1rem;
         border-radius: 999px;
         font-size: 0.9rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
     }
     .mode-local { background: #2e7d32; color: #fff; }
     .mode-cloud { background: #1565c0; color: #fff; }
-    div[data-testid="stChatMessage"] {
-        background: rgba(255,255,255,0.85);
-        border-radius: 12px;
-        padding: 0.5rem;
-    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Session ---
+# --- Session Management ---
 for key, default in [
     ("messages", []),
     ("analysis", ""),
@@ -131,230 +117,101 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
+# Backend Logic
 _ollama_up = is_ollama_running(OLLAMA_BASE_URL)
 _ollama_models = list_models() if _ollama_up else []
 _has_gemini = bool(get_gemini_api_key())
 on_cloud = is_streamlit_cloud()
 
-# --- Sidebar: AI mode (first) ---
+# --- Sidebar ---
 with st.sidebar:
     st.header("⚙️ सेटिङ")
-
+    
     if _ollama_up:
-        st.markdown(
-            '<div class="status-box status-ok">🟢 Ollama चलिरहेको छ (Offline)</div>',
-            unsafe_allow_html=True,
-        )
-        st.caption("Models: " + ", ".join(_ollama_models[:3]) or "—")
+        st.markdown('<div class="status-box status-ok" style="background:#e8f5e9; padding:10px; border-radius:5px; color:#2e7d32;">🟢 Ollama Ready</div>', unsafe_allow_html=True)
     else:
-        st.markdown(
-            '<div class="status-box status-bad">🔴 Ollama बन्द छ<br>'
-            "<small>Terminal: <b>ollama serve</b></small></div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div class="status-box status-bad" style="background:#ffebee; padding:10px; border-radius:5px; color:#c62828;">🔴 Ollama Offline</div>', unsafe_allow_html=True)
 
-    mode_options = ["auto (सिफारिस)"]
-    mode_map = {"auto (सिफारिस)": None}
+    mode_options = ["Auto"]
+    mode_map = {"Auto": None}
     if _ollama_up:
-        mode_options.append("अफलाइन Ollama")
-        mode_map["अफलाइन Ollama"] = "ollama"
+        mode_options.append("Offline (Ollama)")
+        mode_map["Offline (Ollama)"] = "ollama"
     if _has_gemini:
-        mode_options.append("अनलाइन Gemini")
-        mode_map["अनलाइन Gemini"] = "gemini"
+        mode_options.append("Online (Gemini)")
+        mode_map["Online (Gemini)"] = "gemini"
 
-    choice_label = st.radio("AI मोड", mode_options, index=0)
+    choice_label = st.radio("AI Backend", mode_options, index=0)
     user_backend_choice = mode_map.get(choice_label)
-
-    if not _ollama_up and user_backend_choice != "gemini":
-        st.warning("Offline को लागि अर्को terminal मा: `ollama serve`")
-
-    st.divider()
 
 BACKEND = resolve_backend(_ollama_up, user_backend_choice)
 
-if BACKEND == "none":
-    st.error("🚨 AI backend उपलब्ध छैन")
-    st.markdown(
-        """
-        **Offline:** `ollama serve` → `ollama pull gemma2:2b`  
-        **Online:** `.env` मा `GOOGLE_API_KEY=...`  
-        **वा** sidebar मा Gemini मोड छान्नुहोस्।
-        """
-    )
-    st.stop()
-
-# Assistant (recreate if backend changed)
-if (
-    "assistant" not in st.session_state
-    or st.session_state.active_backend != BACKEND
-):
+if ( "assistant" not in st.session_state or st.session_state.active_backend != BACKEND ):
     st.session_state.assistant = HealthAssistant(backend=BACKEND)
     st.session_state.active_backend = BACKEND
 
-
-@st.cache_resource(show_spinner="गाइडलाइन लोड...")
-def load_vector_db():
-    from src.processor import process_pdf_to_vectorstore
-
-    return process_pdf_to_vectorstore(DATA_DIR)
-
-
-# --- Main header ---
+# --- Main App Interface ---
 st.title("🤰 Jeevan-Sangini AI")
+
 mode_class = "mode-local" if BACKEND == "ollama" else "mode-cloud"
-mode_label = (
-    f"🖥️ Offline · Ollama · {OLLAMA_MODEL}"
-    if BACKEND == "ollama"
-    else f"☁️ Online · Gemini · {GEMINI_MODEL}"
-)
+mode_label = f"🖥️ Local: {OLLAMA_MODEL}" if BACKEND == "ollama" else f"☁️ Cloud: {GEMINI_MODEL}"
 st.markdown(f'<span class="mode-pill {mode_class}">{mode_label}</span>', unsafe_allow_html=True)
 
-if BACKEND == "ollama" and not model_available(OLLAMA_MODEL):
-    st.error(f"मोडेल `{OLLAMA_MODEL}` छैन। Terminal: `ollama pull {OLLAMA_MODEL}`")
-
-if BACKEND == "gemini" and not on_cloud and _ollama_up:
-    st.info("💡 Offline चाहनुहुन्छ? Sidebar → **अफलाइन Ollama** छान्नुहोस्।")
-
-st.warning("⚠️ जानकारी मात्र। आपतकालमा तुरुन्त स्वास्थ्य चौकी/अस्पताल।")
-
-# --- Sidebar continued ---
-with st.sidebar:
-    st.caption(f"Active: **{BACKEND}**")
-
-    st.session_state.lang_pref = st.selectbox(
-        "भाषा",
-        ["नेपाली", "English"],
-        index=0 if st.session_state.lang_pref == "नेपाली" else 1,
-    )
-    week = st.number_input("गर्भावस्था हप्ता (०=थाहा छैन)", 0, 42, value=0)
-    st.session_state.pregnancy_week = week if week > 0 else None
-
-    st.session_state.voice_enabled = st.checkbox("🔊 आवाज जवाफ", value=st.session_state.voice_enabled)
-    if not on_cloud:
-        st.session_state.offline_voice = st.checkbox("अफलाइन TTS", value=st.session_state.offline_voice)
-
-    st.markdown(
-        '<div class="sos-box">🆘 SOS<br>एम्बुलेन्स: 102<br>प्रहरी: 100</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.divider()
-    st.subheader("📄 PDF रिपोर्ट")
-    pdf = st.file_uploader("ल्याब PDF", type=["pdf"])
-    if pdf and st.button("विश्लेषण", use_container_width=True):
-        with st.spinner("PDF..."):
-            try:
-                reader = PyPDF2.PdfReader(io.BytesIO(pdf.read()))
-                text = "\n".join(p.extract_text() or "" for p in reader.pages).strip()
-            except Exception as exc:
-                st.error(str(exc))
-                text = ""
-            st.session_state.analysis = (
-                st.session_state.assistant.analyze_report(text, lang=st.session_state.lang_pref)
-                if text
-                else "PDF बाट पाठ निकाल्न सकिएन।"
-            )
-        st.rerun()
-
-    if not on_cloud:
-        st.divider()
-        st.subheader("🎤 आवाज")
-        audio = st.file_uploader("अडियो", type=["wav", "mp3", "m4a"])
-        if audio and st.button("बुझ्नुहोस्", use_container_width=True):
-            from src.stt import transcribe_audio
-
-            suf = os.path.splitext(audio.name)[-1] or ".wav"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suf) as tmp:
-                tmp.write(audio.getvalue())
-                path = tmp.name
-            txt, err = transcribe_audio(path)
-            if err:
-                st.warning(err)
-            elif txt:
-                st.session_state.messages.append({"role": "user", "content": txt})
-                st.rerun()
-
-    st.divider()
-    st.subheader("📚 गाइडलाइन (RAG)")
-    if st.button("गाइडलाइन लोड", use_container_width=True):
-        with st.spinner("लोड..."):
-            try:
-                st.session_state.vector_db = load_vector_db()
-                st.session_state.rag_loaded = st.session_state.vector_db is not None
-                st.success("तयार!" if st.session_state.rag_loaded else f"`{DATA_DIR}/` मा PDF राख्नुहोस्")
-            except Exception as exc:
-                st.error(str(exc))
-
-    if st.button("🗑️ च्याट मेटाउनु", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+st.warning("⚠️ यो सफ्टवेयर जानकारीका लागि मात्र हो। आपतकालमा चिकित्सकसँग सम्पर्क गर्नुहोस्।")
 
 tab_chat, tab_report, tab_track = st.tabs(["💬 परामर्श", "📊 रिपोर्ट", "📅 हप्ता"])
 
 with tab_chat:
+    # Display Chat
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg.get("audio"):
                 st.audio(msg["audio"])
 
-    if prompt := st.chat_input("प्रश्न लेख्नुहोस्..."):
+    if prompt := st.chat_input("यहाँ केही लेख्नुहोस्..."):
+        # Emergency Assessment
         risk = assess_emergency(prompt)
-        if risk["level"] == "high":
-            st.error(risk["message_ne"] if st.session_state.lang_pref == "नेपाली" else risk["message_en"])
-        elif risk["level"] == "medium":
-            st.warning(risk["message_ne"] if st.session_state.lang_pref == "नेपाली" else risk["message_en"])
+        if risk["level"] != "none":
+            msg = risk["message_ne"] if st.session_state.lang_pref == "नेपाली" else risk["message_en"]
+            if risk["level"] == "high": st.error(msg)
+            else: st.warning(msg)
 
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        ctx = ""
-        if st.session_state.vector_db:
-            try:
-                docs = st.session_state.vector_db.similarity_search(prompt, k=2)
-                ctx = "\n".join(d.page_content for d in docs)
-            except Exception:
-                pass
-
         with st.chat_message("assistant"):
-            label = "Offline AI..." if BACKEND == "ollama" else "विश्लेषण..."
-            with st.spinner(label):
+            with st.spinner("सोच्दै..."):
                 ans = st.session_state.assistant.ask(
                     prompt,
-                    context=ctx,
                     lang=st.session_state.lang_pref,
-                    pregnancy_week=st.session_state.pregnancy_week,
+                    pregnancy_week=st.session_state.pregnancy_week
                 )
             st.markdown(ans)
+            
+            # Voice handling
             ap = None
             if st.session_state.voice_enabled:
                 lc = "ne" if st.session_state.lang_pref == "नेपाली" else "en"
-                ap = text_to_speech(
-                    ans[:400],
-                    lang=lc,
-                    prefer_offline=st.session_state.offline_voice and not on_cloud,
-                )
-                if ap:
-                    st.audio(ap)
-        st.session_state.messages.append({"role": "assistant", "content": ans, "audio": ap})
+                ap = text_to_speech(ans[:300], lang=lc)
+                if ap: st.audio(ap)
+            
+            st.session_state.messages.append({"role": "assistant", "content": ans, "audio": ap})
 
 with tab_report:
     if st.session_state.analysis:
-        st.markdown(
-            f"<div class='report-card'>{st.session_state.analysis}</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"<div class='report-card'>{st.session_state.analysis}</div>", unsafe_allow_html=True)
     else:
-        st.info("PDF अपलोड गर्नुहोस्।")
+        st.info("रिपोर्ट विश्लेषणका लागि साइडबारबाट PDF अपलोड गर्नुहोस्।")
 
 with tab_track:
     w = st.session_state.pregnancy_week
     if w:
-        tri = "१" if w <= 13 else ("२" if w <= 27 else "३")
-        st.subheader(f"हप्ता {w} · त्राइमेस्टर {tri}")
-        st.markdown("ANC · दालभात साग · पानी · आराम")
+        st.subheader(f"गर्भावस्थाको हप्ता {w}")
+        # यहाँ हप्ता अनुसारको डेटा थप्न सकिन्छ
+        st.write("यो हप्ताको लागि मुख्य सल्लाह: सन्तुलित आहार र नियमित व्यायाम।")
     else:
-        st.info("साइडबारमा हप्ता राख्नुहोस्।")
+        st.info("विवरण हेर्न साइडबारमा हप्ता सेट गर्नुहोस्।")
 
-st.caption("© 2026 Jeevan-Sangini")
+st.caption("© 2026 Jeevan-Sangini | Empowering Motherhood")

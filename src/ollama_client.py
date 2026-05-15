@@ -87,7 +87,7 @@ def chat(
         "model": model,
         "messages": messages,
         "stream": stream,
-        "options": {"temperature": temperature},
+        "options": {"temperature": temperature,"num_predict": 512},
     }
 
     if not stream:
