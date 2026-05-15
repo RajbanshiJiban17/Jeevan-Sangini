@@ -36,9 +36,10 @@ def _post(path: str, payload: dict, timeout: int = OLLAMA_TIMEOUT) -> dict:
         raise OllamaError("Ollama बाट अमान्य जवाफ आयो।") from exc
 
 
-def is_ollama_running() -> bool:
+def is_ollama_running(OLLAMA_BASE_URL) -> bool:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
+        resp = req.get(f"{OLLAMA_BASE_URL}/api/tags", headers={"ngrok-skip-browser-warning": "true"})
         with request.urlopen(req, timeout=5) as resp:
             return resp.status == 200
     except Exception:
