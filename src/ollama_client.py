@@ -39,8 +39,8 @@ def _post(path: str, payload: dict, timeout: int = OLLAMA_TIMEOUT) -> dict:
 def is_ollama_running(base_url) -> bool:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
-        resp = req.get(f"{base_url}/api/tags", headers={"ngrok-skip-browser-warning": "true"})
-        with request.urlopen(req, timeout=5) as resp:
+        resp = req.get(f"{base_url}/api/tags", headers={"ngrok-skip-browser-warning": "true","User-Agent": "JeevanSangini-Bot"})
+        with request.urlopen(req, timeout=5,verify=True) as resp:
             return resp.status == 200
     except Exception:
         return False
