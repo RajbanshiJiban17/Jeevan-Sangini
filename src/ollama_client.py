@@ -58,7 +58,7 @@ def list_models(base_url=None) -> list[str]:
     target_url = (base_url or OLLAMA_BASE_URL).rstrip('/')
     try:
         # यहाँ STRICT_HEADERS प्रयोग गर्नैपर्छ
-        req = request.Request(f"{target_url}/api/tags", headers=STRICT_HEADERS, method="GET")
+        req = request.Request(f"{target_url}/api/tags", headers=NGROK_HEADERS, method="GET")
         context = ssl._create_unverified_context()
         with request.urlopen(req, timeout=10, context=context) as resp:
             data = json.loads(resp.read().decode("utf-8"))
