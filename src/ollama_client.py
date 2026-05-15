@@ -3,68 +3,73 @@
 from __future__ import annotations
 
 import json
+import ssl
 from typing import Generator, Optional
 from urllib import error, request
 
-from src.config import OLLAMA_BASE_URL, OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT
+from src.config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
 
+# Ngrok को ब्राउजर वार्निङ हटाउन यो Headers अनिवार्य छ
+NGROK_HEADERS = {
+    "ngrok-skip-browser-warning": "true",
+    "User-Agent": "JeevanSangini-Bot",
+    "Content-Type": "application/json"
+}
 
 class OllamaError(RuntimeError):
     pass
 
-
 def _post(path: str, payload: dict, timeout: int = OLLAMA_TIMEOUT) -> dict:
-    url = f"{OLLAMA_HOST}{path}"
+    # OLLAMA_BASE_URL (Ngrok URL) प्रयोग गर्ने
+    url = f"{OLLAMA_BASE_URL.rstrip('/')}{path}"
     data = json.dumps(payload).encode("utf-8")
+    
     req = request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=NGROK_HEADERS,
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=timeout) as resp:
+        # SSL Verification लाई बेवास्ता गर्न (Ngrok को लागि कहिलेकाहीँ चाहिन्छ)
+        context = ssl._create_unverified_context()
+        with request.urlopen(req, timeout=timeout, context=context) as resp:
             body = resp.read().decode("utf-8")
             return json.loads(body) if body.strip() else {}
     except error.URLError as exc:
         raise OllamaError(
-            f"Ollama सर्भर जोडिएन ({OLLAMA_HOST}). "
-            f"पहिले `ollama serve` चलाउनुहोस् र `ollama pull {OLLAMA_MODEL}` गर्नुहोस्। "
+            f"Ollama सर्भर जोडिएन ({OLLAMA_BASE_URL}). "
             f"विवरण: {exc}"
         ) from exc
-    except json.JSONDecodeError as exc:
-        raise OllamaError("Ollama बाट अमान्य जवाफ आयो।") from exc
 
-
-def is_ollama_running(base_url) -> bool:
+def is_ollama_running(base_url=None) -> bool:
+    target_url = (base_url or OLLAMA_BASE_URL).rstrip('/')
     try:
-        req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
-        resp = req.get(f"{base_url}/api/tags", headers={"ngrok-skip-browser-warning": "true","User-Agent": "JeevanSangini-Bot"})
-        with request.urlopen(req, timeout=5,verify=True) as resp:
+        req = request.Request(f"{target_url}/api/tags", headers=NGROK_HEADERS, method="GET")
+        context = ssl._create_unverified_context()
+        with request.urlopen(req, timeout=10, context=context) as resp:
             return resp.status == 200
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG Check Failed: {e}")
         return False
 
-
-def list_models(base_url) -> list[str]:
+def list_models(base_url=None) -> list[str]:
+    target_url = (base_url or OLLAMA_BASE_URL).rstrip('/')
     try:
-        req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
-        headers = {"ngrok-skip-browser-warning": "true"}
-        resp = req.get(f"{base_url}/api/tags", headers=headers)
-        with request.urlopen(req, timeout=10) as resp:
+        req = request.Request(f"{target_url}/api/tags", headers=NGROK_HEADERS, method="GET")
+        context = ssl._create_unverified_context()
+        with request.urlopen(req, timeout=10, context=context) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return [m.get("name", "") for m in data.get("models", [])]
     except Exception:
         return []
 
-
-def model_available(model: str) -> bool:
-    names = list_models()
+def model_available(model: str, base_url=None) -> bool:
+    names = list_models(base_url=base_url)
     if not names:
         return False
     base = model.split(":")[0]
     return any(n == model or n.startswith(f"{base}:") or n.startswith(base) for n in names)
-
 
 def chat(
     messages: list[dict],
@@ -88,18 +93,20 @@ def chat(
             raise OllamaError("मोडेलले खाली जवाफ दियो।")
         return text
 
-    url = f"{OLLAMA_HOST}/api/chat"
+    # Streaming को लागि
+    url = f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat"
     data = json.dumps({**payload, "stream": True}).encode("utf-8")
     req = request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=NGROK_HEADERS,
         method="POST",
     )
 
     def _gen() -> Generator[str, None, None]:
         try:
-            with request.urlopen(req, timeout=OLLAMA_TIMEOUT) as resp:
+            context = ssl._create_unverified_context()
+            with request.urlopen(req, timeout=OLLAMA_TIMEOUT, context=context) as resp:
                 for raw in resp:
                     line = raw.decode("utf-8").strip()
                     if not line:
@@ -110,7 +117,7 @@ def chat(
                         yield part
                     if chunk.get("done"):
                         break
-        except error.URLError as exc:
-            raise OllamaError(f"Ollama stream विफल: {exc}") from exc
+        except Exception as exc:
+            raise OllamaError(f"Ollama stream विफल: {exc}")
 
     return _gen()
