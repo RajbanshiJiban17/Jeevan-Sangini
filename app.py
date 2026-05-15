@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.assistant import HealthAssistant
-from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL
+from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL,OLLAMA_BASE_URL
 from src.emergency import assess_emergency
 from src.ollama_client import is_ollama_running, list_models, model_available
 from src.runtime import get_gemini_api_key, is_streamlit_cloud, rag_enabled, resolve_backend
@@ -131,7 +131,7 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
-_ollama_up = is_ollama_running()
+_ollama_up = is_ollama_running(OLLAMA_BASE_URL)
 _ollama_models = list_models() if _ollama_up else []
 _has_gemini = bool(get_gemini_api_key())
 on_cloud = is_streamlit_cloud()
