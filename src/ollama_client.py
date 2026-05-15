@@ -36,21 +36,21 @@ def _post(path: str, payload: dict, timeout: int = OLLAMA_TIMEOUT) -> dict:
         raise OllamaError("Ollama बाट अमान्य जवाफ आयो।") from exc
 
 
-def is_ollama_running(OLLAMA_BASE_URL) -> bool:
+def is_ollama_running(base_url=OLLAMA_BASE_URL) -> bool:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
-        resp = req.get(f"{OLLAMA_BASE_URL}/api/tags", headers={"ngrok-skip-browser-warning": "true"})
+        resp = req.get(f"{base_url}/api/tags", headers={"ngrok-skip-browser-warning": "true"})
         with request.urlopen(req, timeout=5) as resp:
             return resp.status == 200
     except Exception:
         return False
 
 
-def list_models() -> list[str]:
+def list_models(base_url=OLLAMA_BASE_URL) -> list[str]:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
         headers = {"ngrok-skip-browser-warning": "true"}
-        resp = req.get(f"{OLLAMA_BASE_URL}/api/tags", headers=headers)
+        resp = req.get(f"{base_url}/api/tags", headers=headers)
         with request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return [m.get("name", "") for m in data.get("models", [])]
