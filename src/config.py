@@ -3,7 +3,7 @@ import os
 # --- Ollama (local CPU; small model default) ---
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 # Small models (~1–2 GB). gemma4:e2b is ~7 GB — slow to download.
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:2b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:2b","OLLAMA_BASE_URL")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 
 # --- Gemini (Streamlit Cloud) ---
