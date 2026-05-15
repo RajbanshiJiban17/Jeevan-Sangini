@@ -6,7 +6,7 @@ import json
 from typing import Generator, Optional
 from urllib import error, request
 
-from src.config import OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT
+from src.config import OLLAMA_BASE_URL, OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT
 
 
 class OllamaError(RuntimeError):
@@ -48,6 +48,8 @@ def is_ollama_running() -> bool:
 def list_models() -> list[str]:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
+        headers = {"ngrok-skip-browser-warning": "true"}
+        resp = req.get(f"{OLLAMA_BASE_URL}/api/tags", headers=headers)
         with request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return [m.get("name", "") for m in data.get("models", [])]
