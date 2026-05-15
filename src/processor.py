@@ -1,11 +1,6 @@
 import hashlib
 import os
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 from src.config import DATA_DIR, EMBEDDING_MODEL, VECTOR_CACHE_DIR
 
 
@@ -14,19 +9,23 @@ def _folder_fingerprint(data_source: str) -> str:
         return ""
     parts: list[str] = []
     for name in sorted(os.listdir(data_source)):
-        if name.endswith(".pdf"):
+        if name.lower().endswith(".pdf"):
             path = os.path.join(data_source, name)
             parts.append(f"{name}:{os.path.getmtime(path)}:{os.path.getsize(path)}")
-    raw = "|".join(parts)
-    return hashlib.md5(raw.encode()).hexdigest() if raw else ""
-
-
-def _get_embeddings():
-    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    return hashlib.md5("|".join(parts).encode()).hexdigest() if parts else ""
 
 
 def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bool = False):
-    """Load PDFs from data/, build or load cached FAISS (works offline after first download)."""
+    """Build FAISS index from PDFs. Returns None if RAG deps missing or no PDFs."""
+    try:
+        from langchain_community.document_loaders import PyPDFLoader
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        from langchain_community.vectorstores import FAISS
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    except ImportError:
+        print("RAG skipped: langchain not installed")
+        return None
+
     data_source = data_source or DATA_DIR
     if not os.path.exists(data_source):
         os.makedirs(data_source, exist_ok=True)
@@ -41,7 +40,7 @@ def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bo
     meta_path = os.path.join(cache_dir, "fingerprint.txt")
     index_path = os.path.join(cache_dir, "index.faiss")
 
-    embeddings = _get_embeddings()
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
     if (
         not force_rebuild
@@ -51,15 +50,14 @@ def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bo
     ):
         try:
             with open(meta_path, encoding="utf-8") as f:
-                saved = f.read().strip()
-            if saved == fingerprint:
-                return FAISS.load_local(
-                    cache_dir,
-                    embeddings,
-                    allow_dangerous_deserialization=True,
-                )
+                if f.read().strip() == fingerprint:
+                    return FAISS.load_local(
+                        cache_dir,
+                        embeddings,
+                        allow_dangerous_deserialization=True,
+                    )
         except Exception as e:
-            print(f"Vector cache load failed, rebuilding: {e}")
+            print(f"Cache load failed: {e}")
 
     all_docs = []
     for file in pdfs:
@@ -67,7 +65,7 @@ def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bo
             loader = PyPDFLoader(os.path.join(data_source, file))
             all_docs.extend(loader.load())
         except Exception as e:
-            print(f"Error loading {file}: {e}")
+            print(f"PDF error {file}: {e}")
 
     if not all_docs:
         return None
@@ -81,5 +79,4 @@ def process_pdf_to_vectorstore(data_source: str | None = None, force_rebuild: bo
     if fingerprint:
         with open(meta_path, "w", encoding="utf-8") as f:
             f.write(fingerprint)
-
     return db

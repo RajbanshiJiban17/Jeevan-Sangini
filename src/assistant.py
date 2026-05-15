@@ -2,33 +2,24 @@ from __future__ import annotations
 
 import re
 
-from src.config import OLLAMA_MODEL
+from src.config import GEMINI_MODEL, OLLAMA_MODEL
 from src.emergency import assess_emergency
-from src.ollama_client import OllamaError, chat
+from src.gemini_client import GeminiError
+from src.llm import chat
+from src.ollama_client import OllamaError
 
-SYSTEM_PROMPT = """You are Jeevan Sangini (जीवन सङ्गिनी), an advanced maternal healthcare assistant.
-You run locally (offline) for privacy. You support Nepali and English.
+SYSTEM_PROMPT = """You are Jeevan Sangini (जीवन सङ्गिनी), a maternal healthcare assistant for Nepal.
+Support Nepali and English. Never diagnose with certainty. Encourage doctor visits when needed.
+Keep answers short and kind. Use local foods (dal bhat, saag, eggs, milk).
+State severity: Safe | Monitor Carefully | Urgent Medical Attention
+State risk: Low Risk | Medium Risk | High Risk Emergency"""
 
-CORE RULES:
-- Never diagnose with certainty. Never replace licensed doctors.
-- Prioritize maternal safety. Be calm, empathetic, and simple.
-- Use Nepali if the user writes in Nepali; otherwise English.
-- No panic unless truly urgent. Encourage professional care when needed.
-- Use affordable Nepal-friendly nutrition examples (dal bhat, saag, eggs, milk, gundruk).
-- If unsure, say information may be incomplete and suggest clinical evaluation.
-
-SYMPTOM SEVERITY (state one): Safe | Monitor Carefully | Urgent Medical Attention
-EMERGENCY RISK (state one): Low Risk | Medium Risk | High Risk Emergency
-
-For reports: explain Hb, BP, sugar, etc. in plain language; flag abnormal values carefully.
-Never give unsafe medical advice."""
-
-REPORT_PROMPT = """Analyze this maternal health document text.
-1) Key values (Hb, BP, glucose, etc.)
-2) What is slightly low/high vs typical pregnancy ranges (cautious language)
-3) Simple next steps and when to see a doctor
-4) Severity: Safe | Monitor Carefully | Urgent Medical Attention
-Do not claim a definitive diagnosis."""
+REPORT_PROMPT = """Analyze maternal health report text simply:
+1) Key values (Hb, BP, sugar)
+2) Mild concerns in plain language
+3) Next steps
+4) Severity level
+No definitive diagnosis."""
 
 
 def _detect_language(text: str) -> str:
@@ -38,8 +29,11 @@ def _detect_language(text: str) -> str:
 
 
 class HealthAssistant:
-    def __init__(self, model: str | None = None):
-        self.model = model or OLLAMA_MODEL
+    def __init__(self, backend: str = "ollama", model: str | None = None):
+        self.backend = backend
+        self.model = model or (
+            OLLAMA_MODEL if backend == "ollama" else GEMINI_MODEL
+        )
 
     def ask(
         self,
@@ -47,62 +41,56 @@ class HealthAssistant:
         context: str = "",
         lang: str | None = None,
         pregnancy_week: int | None = None,
-        extra_system: str = "",
     ) -> str:
         lang = lang or _detect_language(user_query)
         emergency = assess_emergency(user_query)
 
         user_block = user_query.strip()
         if context:
-            user_block = f"Relevant guideline context:\n{context[:2000]}\n\nUser: {user_query}"
-
+            user_block = f"Guidelines:\n{context[:2000]}\n\nQuestion: {user_query}"
         if pregnancy_week:
             user_block = f"Pregnancy week: {pregnancy_week}\n\n{user_block}"
 
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT + (f"\n{extra_system}" if extra_system else "")},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": (
-                    f"Respond in {lang}. Keep sentences short for low-literacy users.\n\n"
-                    f"{user_block}"
-                ),
+                "content": f"Reply in {lang}. Short sentences.\n\n{user_block}",
             },
         ]
 
         try:
-            answer = chat(messages, model=self.model, temperature=0.35)
-        except OllamaError as exc:
+            answer = chat(messages, backend=self.backend, model=self.model)
+        except (OllamaError, GeminiError, RuntimeError) as exc:
             return str(exc)
 
         if emergency["level"] == "high":
-            prefix = emergency["message_ne"] if lang == "नेपाली" else emergency["message_en"]
-            answer = f"{prefix}\n\n---\n\n{answer}"
+            p = emergency["message_ne"] if lang == "नेपाली" else emergency["message_en"]
+            answer = f"{p}\n\n---\n\n{answer}"
         elif emergency["level"] == "medium":
-            prefix = emergency["message_ne"] if lang == "नेपाली" else emergency["message_en"]
-            answer = f"{prefix}\n\n{answer}"
-
+            p = emergency["message_ne"] if lang == "नेपाली" else emergency["message_en"]
+            answer = f"{p}\n\n{answer}"
         return answer
 
     def analyze_report(self, report_text: str, lang: str | None = None) -> str:
         lang = lang or _detect_language(report_text)
         text = (report_text or "").strip()
         if not text:
-            return "रिपोर्टबाट पाठ पढ्न सकिएन। स्पष्ट PDF वा फोटो पुन: अपलोड गर्नुहोस्।"
+            return "रिपोर्टबाट पाठ पढ्न सकिएन।"
 
         emergency = assess_emergency(text)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": (
-                    f"{REPORT_PROMPT}\nRespond in {lang}.\n\nReport text:\n{text[:6000]}"
-                ),
+                "content": f"{REPORT_PROMPT}\nLanguage: {lang}\n\n{text[:6000]}",
             },
         ]
         try:
-            answer = chat(messages, model=self.model, temperature=0.25)
-        except OllamaError as exc:
+            answer = chat(
+                messages, backend=self.backend, model=self.model, temperature=0.25
+            )
+        except (OllamaError, GeminiError, RuntimeError) as exc:
             return str(exc)
 
         if emergency["level"] in ("high", "medium"):
