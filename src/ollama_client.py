@@ -36,7 +36,7 @@ def _post(path: str, payload: dict, timeout: int = OLLAMA_TIMEOUT) -> dict:
         raise OllamaError("Ollama बाट अमान्य जवाफ आयो।") from exc
 
 
-def is_ollama_running(base_url=OLLAMA_BASE_URL) -> bool:
+def is_ollama_running(base_url="http://localhost:11434") -> bool:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
         resp = req.get(f"{base_url}/api/tags", headers={"ngrok-skip-browser-warning": "true"})
@@ -46,7 +46,7 @@ def is_ollama_running(base_url=OLLAMA_BASE_URL) -> bool:
         return False
 
 
-def list_models(base_url=OLLAMA_BASE_URL) -> list[str]:
+def list_models(base_url="http://localhost:11434") -> list[str]:
     try:
         req = request.Request(f"{OLLAMA_HOST}/api/tags", method="GET")
         headers = {"ngrok-skip-browser-warning": "true"}

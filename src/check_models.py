@@ -7,6 +7,7 @@ from src.runtime import get_gemini_api_key, resolve_backend
 
 def main():
     print("Jeevan Sangini — system check\n")
+    print(f"DEBUG: Looking for Ollama at: {OLLAMA_BASE_URL}")
     
     # 1. Ollama को स्थिति चेक गर्दा BASE_URL पठाउनुहोस्
     # पक्का गर्नुहोस् कि तपाइँको is_ollama_running ले base_url एर्ग्युमेन्ट लिन्छ
