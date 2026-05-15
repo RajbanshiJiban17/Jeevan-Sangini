@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.assistant import HealthAssistant
-from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL
+from src.config import DATA_DIR, GEMINI_MODEL, OLLAMA_MODEL, OLLAMA_BASE_URL
 from src.emergency import assess_emergency
 from src.ollama_client import is_ollama_running, list_models, model_available
 from src.runtime import get_gemini_api_key, is_streamlit_cloud, rag_enabled, resolve_backend
